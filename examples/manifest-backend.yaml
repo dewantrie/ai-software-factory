@@ -1,0 +1,43 @@
+# Example manifest for a backend-only Node + Fastify repo.
+# Copy to your repo as `.factory.yaml` and edit the values.
+
+name: billing-api
+layer: backend
+profile: node-fastify
+
+factory-repo: ../ai-factory
+contracts-repo: ../ai-factory-contracts
+
+commands:
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test: pnpm test
+  acceptance: pnpm test:integration
+
+paths:
+  backend:
+    - src/routes/**
+    - src/services/**
+    - src/repository/**
+    - src/lib/**
+    - prisma/**
+  tests:
+    - tests/integration/**
+    - tests/fixtures/**
+  forbidden:
+    - .env*
+    - "**/secrets.*"
+
+dont-do:
+  - Do not call the legacy /v1 endpoints — they're being deprecated.
+  - Stripe API version is locked at 2024-06-20.
+
+platforms:
+  - claude-code
+  # - cursor       # enable when cursor adapter ships
+  # - kiro
+
+notes: |
+  This repo is the authoritative source for billing API contracts.
+  Cross-repo features should land here first; the OpenAPI spec is
+  published to the contracts repo on every merge.
