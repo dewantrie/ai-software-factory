@@ -25,52 +25,57 @@ The chain is structured so the human stays in the loop where judgment matters, a
 
 ### The Tier 3 flow (full chain)
 
-```
-  HUMAN                                  ORCHESTRATOR (AI)              SPECIALIST AGENTS (AI)
-  ─────                                  ─────────────────              ──────────────────────
-  "build invoice reminders"  ─────────►  triage gate
-                                              │
-                                              ▼                    ┌──► researcher (read-only)
-                                          invoke researcher  ──────┘
-                                              ◄──── relevant files, patterns, risks
-                                              │
-                                              ▼                    ┌──► story-writer (read-only)
-                                          invoke story-writer ─────┘
-                                              ◄──── user story + acceptance criteria
-                                              │
-  CHECKPOINT 1                ◄─────────  presents story
-  read & approve              ─────────►  continue
-                                              │
-                                              ▼                    ┌──► spec-writer (read-only)
-                                          invoke spec-writer  ─────┘
-                                              ◄──── technical brief (files-that-will-change, API, tests)
-                                              │
-  CHECKPOINT 2                ◄─────────  presents brief
-  read & approve              ─────────►  continue
-                                              │
-                                              ▼                    ┌──► backend-builder (scoped edit)
-                                          invoke backend-builder ──┤    writes files,
-                                              ◄──── files + API contract + test results        runs typecheck/lint/test
-                                              │
-                                              ▼                    ┌──► frontend-builder (scoped edit)
-                                          invoke frontend-builder ─┤    consumes contract verbatim,
-                                              ◄──── files + test results                       writes files
-                                              │
-                                              ▼                    ┌──► test-verifier (test files only)
-                                          invoke test-verifier  ───┘    writes 1 acceptance test
-                                              ◄──── pass/fail per criterion                    per AC, runs them
-                                              │
-                                              ▼ fix loop if any AC fails (max 3 iterations)
-                                              │
-                                              ▼                    ┌──► validator (read-only)
-                                          invoke validator    ─────┘
-                                              ◄──── findings grouped Critical / Important / Minor
-                                              │
-                                              ▼ fix loop on Critical findings (max 3 iterations)
-                                              │
-                                              ▼
-  CHECKPOINT 3                ◄─────────  final summary + PR title + body
-  review diff, open PR        ─────────►  done
+```mermaid
+sequenceDiagram
+    actor Human
+    participant Orchestrator
+    participant Agents as Specialist Agents
+
+    Human->>Orchestrator: /feature-factory <request>
+    Note over Orchestrator: triage gate
+    Orchestrator->>Agents: invoke researcher (read-only)
+    Agents-->>Orchestrator: relevant files, patterns, risks
+    Orchestrator->>Agents: invoke story-writer (read-only)
+    Agents-->>Orchestrator: user story + acceptance criteria
+
+    Note over Human,Orchestrator: ⏸ CHECKPOINT 1
+    Orchestrator->>Human: present story
+    Human->>Orchestrator: approved
+
+    Orchestrator->>Agents: invoke spec-writer (read-only)
+    Agents-->>Orchestrator: technical brief<br/>(files-that-will-change, API, tests)
+
+    Note over Human,Orchestrator: ⏸ CHECKPOINT 2
+    Orchestrator->>Human: present brief
+    Human->>Orchestrator: approved
+
+    Orchestrator->>Agents: invoke backend-builder (scoped edit)
+    Agents-->>Orchestrator: files + API contract + test results
+    Orchestrator->>Agents: invoke frontend-builder (scoped edit)<br/>(passes API contract verbatim)
+    Agents-->>Orchestrator: files + test results
+    Orchestrator->>Agents: invoke test-verifier (test files only)
+    Agents-->>Orchestrator: pass/fail per acceptance criterion
+
+    opt any AC fails (max 3 iterations)
+        Orchestrator->>Agents: re-invoke responsible builder
+        Agents-->>Orchestrator: fixed
+        Orchestrator->>Agents: re-invoke test-verifier
+        Agents-->>Orchestrator: pass/fail
+    end
+
+    Orchestrator->>Agents: invoke validator (read-only)
+    Agents-->>Orchestrator: findings (Critical / Important / Minor)
+
+    opt Critical findings (max 3 iterations)
+        Orchestrator->>Agents: re-invoke responsible builder
+        Agents-->>Orchestrator: fixed
+        Orchestrator->>Agents: re-invoke validator
+        Agents-->>Orchestrator: findings
+    end
+
+    Note over Human,Orchestrator: ⏸ CHECKPOINT 3
+    Orchestrator->>Human: final summary + suggested PR title/body
+    Note over Human: review diff, open PR
 ```
 
 ### Who decides what
@@ -261,3 +266,27 @@ For features that touch multiple repos:
 4. Each repo's chain skips the agents that don't apply to its layer.
 
 This is not built yet — Phase B.
+
+## License
+
+MIT License
+
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
