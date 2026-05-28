@@ -102,11 +102,16 @@ ai-factory/
 │   ├── agents/         ← researcher, story-writer, ... (platform-neutral)
 │   └── skills/         ← feature-factory, quick-fix, spike
 ├── profiles/           ← stack rule packs (nextjs, node-fastify, go-echo, ...)
-├── platforms/          ← adapters: one per AI platform
-├── src/                ← TypeScript CLI source
-├── examples/           ← sample .factory.yaml manifests
-└── bin/factory         ← CLI entrypoint
+├── src/
+│   ├── cli.ts          ← CLI entrypoint
+│   ├── manifest.ts     ← .factory.yaml parsing + validation
+│   ├── render.ts       ← prompt/profile composition
+│   ├── commands/       ← install (init/sync still stubs)
+│   └── platforms/      ← adapters: one per AI platform
+└── examples/           ← sample .factory.yaml manifests
 ```
+
+> Path examples in this README assume the checkout directory is named `ai-factory`. Adjust paths if you cloned it under a different name (e.g., `ai-software-factory`).
 
 Each project repo gets a small `.factory.yaml` manifest (~20 lines) declaring layer, stack profile, commands, paths, and target platforms. `factory install` generates the platform files.
 
@@ -122,25 +127,43 @@ npm install
 In each project repo, create `.factory.yaml` (copy from `examples/` and edit):
 
 ```yaml
-name: billing-api
-layer: backend
-profile: node-fastify
-factory-repo: ../ai-factory
-commands:
+name: billing-api                          # repo identifier (required)
+layer: backend                             # backend | frontend | worker | mobile | fullstack (required)
+profile: node-fastify                      # file in profiles/ without .md (required)
+factory-repo: ../ai-factory                # path to this checkout (optional, informational)
+contracts-repo: ../ai-factory-contracts    # cross-repo contract dir (optional, Phase B)
+
+commands:                                  # required — agents read these
   typecheck: pnpm typecheck
   lint: pnpm lint
   test: pnpm test
-  acceptance: pnpm test:integration
-paths:
-  backend:
+  acceptance: pnpm test:integration        # optional — separate acceptance/e2e command
+
+paths:                                     # path scoping for agents (all lists optional)
+  backend:                                 # Backend Builder may edit
     - src/routes/**
     - src/services/**
-    - src/repository/**
-    - prisma/**
-  tests:
+  frontend: []                             # Frontend Builder may edit
+  shared:                                  # readable by either builder
+    - packages/shared/**
+  tests:                                   # Test Verifier may edit
     - tests/integration/**
-platforms:
+  forbidden:                               # no agent may edit
+    - .env*
+    - "**/secrets.*"
+
+dont-do:                                   # optional — appended to CLAUDE.md
+  - Do not call the legacy /v1 endpoints.
+
+platforms:                                 # required — which adapters to run
   - claude-code
+  # - kiro      (stub)
+  # - cursor    (stub)
+  # - codex     (stub)
+  # - windsurf  (stub)
+
+notes: |                                   # optional — free-form prose appended to CLAUDE.md
+  This repo is the authoritative source for billing API contracts.
 ```
 
 Then run from your project repo:
@@ -149,13 +172,9 @@ Then run from your project repo:
 npx tsx /path/to/ai-factory/src/cli.ts install
 ```
 
-Or with the global install (once it's published):
-
-```bash
-factory install
-```
-
 This reads your manifest, loads the matching profile, and writes platform-specific files (e.g., `.claude/agents/*.md` + `CLAUDE.md` for Claude Code).
+
+> A global `factory` binary is planned — `package.json` declares `bin: ./bin/factory.mjs`, but that file isn't built yet. Use the `npx tsx` form above until the bin script lands.
 
 ## Status — Phase A
 
@@ -198,8 +217,12 @@ A profile is a markdown file under `profiles/`. It contains:
 - Architecture rules
 - Don't-do list
 - Conventions
-- Default paths (which the manifest can override)
-- Default commands (which the manifest can override)
+- Default paths (documentation only — see note below)
+- Default commands (documentation only — see note below)
+
+The profile body is **inlined verbatim** into CLAUDE.md (or the platform's context file) under the `## Profile rules` section, including its own markdown headings. When you write a profile, structure it as a self-contained section because its `## Architecture rules` heading ends up nested inside CLAUDE.md's `## Profile rules`.
+
+The "Default paths" and "Default commands" YAML blocks in the profile are **reference documentation only** — they are not parsed. The real values come from the manifest's `paths:` and `commands:` blocks. Treat them as the suggested starting point a manifest author should copy.
 
 To add a profile for a new stack:
 1. Create `profiles/<your-stack>.md`.
