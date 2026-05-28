@@ -11,7 +11,90 @@ Designed for the case: **many repos, many techs, many AI platforms.**
 - **Platform adapters** — code that renders prompts + profile + per-repo manifest into the right files for each AI platform.
 - **CLI** — `factory install` reads `.factory.yaml` in any repo and generates everything.
 
-## Architecture
+## Architecture: AI and human collaboration
+
+The chain is structured so the human stays in the loop where judgment matters, and steps out where the AI is reliable. Three layers, two roles, three checkpoints.
+
+### Layers
+
+| Layer | Owner | What it does |
+|-------|-------|--------------|
+| Orchestrator (skill) | AI, driven by human input | Chain logic. Decides which agent to invoke next. Pauses for human checkpoints. Routes failures back to the right builder. Does NOT edit files. |
+| Specialist agents (7) | AI, with restricted tools | Each does one job in its own fresh context window. Tool scoping prevents agents from doing each other's work. |
+| Reviewer | Human | Approves story, approves brief, reviews diff before merge. Tunes the rules over time. |
+
+### The Tier 3 flow (full chain)
+
+```
+  HUMAN                                  ORCHESTRATOR (AI)              SPECIALIST AGENTS (AI)
+  ─────                                  ─────────────────              ──────────────────────
+  "build invoice reminders"  ─────────►  triage gate
+                                              │
+                                              ▼                    ┌──► researcher (read-only)
+                                          invoke researcher  ──────┘
+                                              ◄──── relevant files, patterns, risks
+                                              │
+                                              ▼                    ┌──► story-writer (read-only)
+                                          invoke story-writer ─────┘
+                                              ◄──── user story + acceptance criteria
+                                              │
+  CHECKPOINT 1                ◄─────────  presents story
+  read & approve              ─────────►  continue
+                                              │
+                                              ▼                    ┌──► spec-writer (read-only)
+                                          invoke spec-writer  ─────┘
+                                              ◄──── technical brief (files-that-will-change, API, tests)
+                                              │
+  CHECKPOINT 2                ◄─────────  presents brief
+  read & approve              ─────────►  continue
+                                              │
+                                              ▼                    ┌──► backend-builder (scoped edit)
+                                          invoke backend-builder ──┤    writes files,
+                                              ◄──── files + API contract + test results        runs typecheck/lint/test
+                                              │
+                                              ▼                    ┌──► frontend-builder (scoped edit)
+                                          invoke frontend-builder ─┤    consumes contract verbatim,
+                                              ◄──── files + test results                       writes files
+                                              │
+                                              ▼                    ┌──► test-verifier (test files only)
+                                          invoke test-verifier  ───┘    writes 1 acceptance test
+                                              ◄──── pass/fail per criterion                    per AC, runs them
+                                              │
+                                              ▼ fix loop if any AC fails (max 3 iterations)
+                                              │
+                                              ▼                    ┌──► validator (read-only)
+                                          invoke validator    ─────┘
+                                              ◄──── findings grouped Critical / Important / Minor
+                                              │
+                                              ▼ fix loop on Critical findings (max 3 iterations)
+                                              │
+                                              ▼
+  CHECKPOINT 3                ◄─────────  final summary + PR title + body
+  review diff, open PR        ─────────►  done
+```
+
+### Who decides what
+
+| Decision | Owner | Notes |
+|----------|-------|-------|
+| Is this worth building? | Human | Trigger the chain. |
+| Is the story right? | Human (AI drafts) | Block at CHECKPOINT 1 if not. |
+| Is the technical approach sound? | Human (AI drafts) | Block at CHECKPOINT 2 if not. The brief catches architectural mistakes cheaply. |
+| Which files to change? | AI (spec-writer) | Bounded by the brief — builders cannot touch files outside this list. |
+| What code to write? | AI (builders) | Bounded by the spec + path scoping rules in the per-repo context file. |
+| Did the implementation satisfy the story? | AI (test-verifier + validator) | Reported to human; auto-fix loops up to 3 iterations. |
+| Is the diff merge-ready? | Human | Block at CHECKPOINT 3 if not. |
+| What rules to add when an agent surprises you? | Human | Edit the profile or per-repo context file. This is how the chain improves over time. |
+
+### Why this split
+
+- **Humans are better at:** business judgment, ambiguous trade-offs, catching missing requirements, taste.
+- **AI agents are better at:** breadth (reading many files quickly), discipline (checking the same 30 things every time), patience (writing the boring fixtures and edge-case tests).
+- **The chain is bad at:** anything not covered by the validator's checklist. That's why the validator's checklist is the most important prompt to keep tuning — every gap the validator misses becomes a new line in its checklist.
+
+The three checkpoints are not bureaucracy. They are where wrong assumptions cost the least to fix. A mistake caught at CHECKPOINT 2 (brief approval) costs a re-prompt. The same mistake caught after the builders run costs hours of rework.
+
+## Repo layout
 
 ```
 ai-factory/
