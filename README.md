@@ -124,6 +124,8 @@ npm install
 
 ## Usage
 
+**For a step-by-step walkthrough of one feature going through the full Tier 3 chain — including what to type at each checkpoint, what the AI returns, and common mistakes — see [`docs/walkthrough.md`](docs/walkthrough.md).**
+
 In each project repo, create `.factory.yaml` (copy from `examples/` and edit):
 
 ```yaml
