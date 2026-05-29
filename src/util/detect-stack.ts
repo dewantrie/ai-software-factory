@@ -23,6 +23,21 @@ export function detectStack(targetRoot: string): DetectedStack {
     return { layer: "backend", profile: "python-fastapi", reason: "pyproject.toml / requirements.txt present" };
   }
 
+  // Java — Quarkus (look for quarkus markers in Maven or Gradle build files)
+  const javaBuildFiles = ["pom.xml", "build.gradle", "build.gradle.kts"];
+  for (const f of javaBuildFiles) {
+    const p = join(targetRoot, f);
+    if (existsSync(p)) {
+      try {
+        if (readFileSync(p, "utf8").includes("quarkus")) {
+          return { layer: "backend", profile: "quarkus-reactive", reason: `${f} mentions quarkus` };
+        }
+      } catch {
+        // fall through
+      }
+    }
+  }
+
   // Bun-flavored lockfile / config wins before generic Node
   const bunSignals =
     existsSync(join(targetRoot, "bun.lockb")) ||

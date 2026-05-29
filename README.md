@@ -207,7 +207,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ✅ Manifest parsing + validation (`.factory.yaml`)
 - ✅ Render engine (template substitution + context-file composition)
 - ✅ Platform-neutral agent prompts (7 agents, 3 skills)
-- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono
+- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java)
 - ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`
 - ✅ `factory install` command
 
@@ -229,7 +229,7 @@ These are deferred until you actually need them. Each is straightforward to add 
 - ⏳ Cursor adapter (stub — target layout documented in `src/platforms/cursor.ts`)
 - ⏳ Windsurf adapter (stub — target layout documented in `src/platforms/windsurf.ts`)
 
-**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing five (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
+**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing six (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
 
 - Rust + Axum / Actix
 - SvelteKit (fullstack)
@@ -237,7 +237,7 @@ These are deferred until you actually need them. Each is straightforward to add 
 - Django (Python)
 - React Native / Flutter (mobile)
 - Ruby on Rails
-- Spring Boot (Java)
+- Spring Boot (Java, blocking)
 - .NET / ASP.NET Core
 
 **Chain ↔ contract-bridge integration** — currently the user invokes `factory feature pull / ship` manually around the chain. A future iteration can have the skill orchestrator auto-pull on start and auto-ship on completion.
