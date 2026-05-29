@@ -198,7 +198,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ⏳ Windsurf adapter — stub
 - ✅ **`init` command** (interactive manifest wizard) — fully working
 - ✅ **`sync` command** (workspace-wide refresh) — fully working
-- ⏳ Cross-repo contract bridge (`ai-factory-contracts` repo + `feature start` / `feature ship` commands) — not started
+- ✅ **Cross-repo contract bridge** — `factory feature start / pull / ship / list / status` commands fully working (MVP)
 
 ### Roadmap (Phase B)
 1. Wire up the 4 stub platform adapters.
