@@ -23,6 +23,11 @@ export function detectStack(targetRoot: string): DetectedStack {
     return { layer: "backend", profile: "python-fastapi", reason: "pyproject.toml / requirements.txt present" };
   }
 
+  // Bun-flavored lockfile / config wins before generic Node
+  const bunSignals =
+    existsSync(join(targetRoot, "bun.lockb")) ||
+    existsSync(join(targetRoot, "bunfig.toml"));
+
   // Node ecosystem
   const pkgPath = join(targetRoot, "package.json");
   if (existsSync(pkgPath)) {
@@ -37,6 +42,14 @@ export function detectStack(targetRoot: string): DetectedStack {
       if ("next" in deps) {
         return { layer: "fullstack", profile: "nextjs-app-router", reason: "next in dependencies" };
       }
+      // Bun + Hono
+      if ("hono" in deps || (bunSignals && !("fastify" in deps))) {
+        return {
+          layer: "backend",
+          profile: "bun-hono",
+          reason: "hono in dependencies" + (bunSignals ? " (+ Bun lockfile/config)" : ""),
+        };
+      }
       // Fastify backend
       if ("fastify" in deps) {
         return { layer: "backend", profile: "node-fastify", reason: "fastify in dependencies" };
@@ -50,6 +63,11 @@ export function detectStack(targetRoot: string): DetectedStack {
     } catch {
       // fall through
     }
+  }
+
+  // Bun signals without package.json (rare but possible)
+  if (bunSignals) {
+    return { layer: "backend", profile: "bun-hono", reason: "Bun lockfile/config present" };
   }
 
   return {};

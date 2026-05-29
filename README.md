@@ -207,7 +207,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ✅ Manifest parsing + validation (`.factory.yaml`)
 - ✅ Render engine (template substitution + context-file composition)
 - ✅ Platform-neutral agent prompts (7 agents, 3 skills)
-- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI
+- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono
 - ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`
 - ✅ `factory install` command
 
@@ -229,9 +229,8 @@ These are deferred until you actually need them. Each is straightforward to add 
 - ⏳ Cursor adapter (stub — target layout documented in `src/platforms/cursor.ts`)
 - ⏳ Windsurf adapter (stub — target layout documented in `src/platforms/windsurf.ts`)
 
-**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing four (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
+**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing five (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
 
-- Bun + Hono / Elysia
 - Rust + Axum / Actix
 - SvelteKit (fullstack)
 - Nuxt 3 (fullstack)
