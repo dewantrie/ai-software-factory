@@ -1,8 +1,10 @@
 # Walkthrough: your first feature through the factory
 
-A complete worked example of one feature going through the Tier 3 chain. Use this as a template the first few times you run the chain.
+A complete worked example of one feature going through the Tier 3 chain in **a single repo**. Use this as a template the first few times you run the chain.
 
 The example feature: **"add invoice reminders"** — a daily job that emails customers when invoices are >7 days unpaid, plus a manual "send reminder now" button for admins. It touches both backend and frontend, so the full 7-agent chain runs.
+
+> **Polyrepo?** If your backend and frontend live in **separate repos**, see [`cross-repo.md`](cross-repo.md) instead. That walkthrough covers the contract-bridge workflow (`factory feature start / pull / ship`) on top of the per-repo chain explained here.
 
 ## How to invoke the chain — by platform
 

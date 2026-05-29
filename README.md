@@ -127,11 +127,28 @@ cd ai-factory
 npm install
 ```
 
+## Commands at a glance
+
+| Command | What it does |
+|---------|--------------|
+| `factory init` | Interactive wizard. Creates `.factory.yaml` in the current repo. Detects stack from package.json / go.mod / pyproject.toml. |
+| `factory install` | Generates platform files (`.claude/`, `.kiro/`, `AGENTS.md` + `.codex/`, etc.) for one repo, based on its `.factory.yaml` and the chosen profile. |
+| `factory sync [--dry-run]` | Reads `factory.workspace.yaml` (or `--workspace <path>`) and runs `install` on every listed repo. Skips repos without a manifest; continues on per-repo failures. |
+| `factory feature start <name>` | Scaffolds `<contracts-repo>/features/<name>/` with a `story.md` skeleton + empty `status.yaml`. The story is the single source of truth, shared across every implementing repo. |
+| `factory feature pull <name>` | Copies the feature's `story.md` and any committed contract artifacts from the contracts repo into local `.factory/features/<name>/`. Inputs for the chain in this repo. |
+| `factory feature ship <name> --contract <path>` | Marks this repo as having shipped the feature; optionally copies a local API contract back into the contracts repo. Updates `status.yaml`. |
+| `factory feature list` | Lists features in the contracts repo with ship counts. |
+| `factory feature status <name>` | Shows which repos have shipped a feature, when, and at what commit. |
+
+Until the `factory` binary is wired up, invoke any command via `npx tsx /path/to/ai-factory/src/cli.ts <command>`.
+
 ## Usage
 
-**For a step-by-step walkthrough of one feature going through the full Tier 3 chain — including what to type at each checkpoint, what the AI returns, and common mistakes — see [`docs/walkthrough.md`](docs/walkthrough.md).**
+**Walkthroughs:**
+- [`docs/walkthrough.md`](docs/walkthrough.md) — one feature through the full Tier 3 chain in a single repo. What to type at each checkpoint, what the AI returns, common mistakes.
+- [`docs/cross-repo.md`](docs/cross-repo.md) — a feature spanning multiple repos via the contract bridge (backend repo → contracts → frontend repo).
 
-In each project repo, create `.factory.yaml` (copy from `examples/` and edit):
+In each project repo, create `.factory.yaml` (either run `factory init`, or copy from `examples/` and edit):
 
 ```yaml
 name: billing-api                          # repo identifier (required)
@@ -164,9 +181,9 @@ dont-do:                                   # optional — appended to CLAUDE.md
 
 platforms:                                 # required — which adapters to run
   - claude-code
-  # - kiro      (stub)
+  - kiro
+  - codex
   # - cursor    (stub)
-  # - codex     (stub)
   # - windsurf  (stub)
 
 notes: |                                   # optional — free-form prose appended to CLAUDE.md
@@ -256,16 +273,55 @@ export interface PlatformAdapter {
 
 `src/platforms/claude-code.ts` is the reference implementation. The stubs in `kiro.ts`, `cursor.ts`, `codex.ts`, `windsurf.ts` document the target layout for each platform — fill them in to enable.
 
-## Cross-repo coordination (planned)
+## Cross-repo coordination
 
-For features that touch multiple repos:
+For features that touch multiple repos (e.g., backend repo emits a contract, frontend repo consumes it), the factory uses a separate **contracts repo** as the bridge — the place where the user story lives once and where the API contract is exchanged between repos.
 
-1. Backend repo runs `factory feature start <name>` — creates a feature folder in `ai-factory-contracts/features/<name>/` with `story.md`.
-2. After the backend chain completes, the API contract is written to `ai-factory-contracts/features/<name>/api.openapi.yaml`.
-3. Frontend repo reads the story + contract from there and runs its own chain.
-4. Each repo's chain skips the agents that don't apply to its layer.
+**Workflow:**
 
-This is not built yet — Phase B.
+```bash
+# 1. In the backend repo (or wherever the story originates):
+factory feature start invoice-reminders
+# → scaffolds <contracts-repo>/features/invoice-reminders/story.md + status.yaml
+# Edit story.md, then commit + push the contracts repo.
+
+# 2. In the backend repo, pull the (now-committed) story:
+factory feature pull invoice-reminders
+# → copies story.md into .factory/features/invoice-reminders/
+# Then run the chain (Tier 3) referencing that story as input.
+
+# 3. When the backend chain produces an API contract artifact:
+factory feature ship invoice-reminders \
+  --contract docs/api/invoice-reminders.openapi.yaml \
+  --commit $(git rev-parse HEAD)
+# → copies the contract into the contracts repo
+# → appends this repo to status.yaml's shipped list
+# Commit + push the contracts repo.
+
+# 4. In the frontend repo:
+factory feature pull invoice-reminders
+# → pulls story.md AND api.openapi.yaml into .factory/features/<name>/
+# Run the chain with the story + contract as inputs.
+
+# 5. When the frontend ships:
+factory feature ship invoice-reminders --commit $(git rev-parse HEAD)
+# → marks this repo shipped in status.yaml
+```
+
+**On-disk in the contracts repo:**
+
+```
+<contracts-repo>/
+└── features/
+    └── invoice-reminders/
+        ├── story.md            # authored once, shared
+        ├── api.openapi.yaml    # backend writes; frontend reads
+        └── status.yaml         # append-only ship log
+```
+
+See [`docs/cross-repo.md`](docs/cross-repo.md) for the full worked example with two repos and the orchestrator skill flow.
+
+**Phase A scope:** CLI commands only. The chain doesn't yet auto-pull on start or auto-ship on completion — invoke manually. Integration with the orchestrator skills is a follow-up.
 
 ## License
 
