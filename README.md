@@ -192,7 +192,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ✅ Platform-neutral agent prompts (7 agents, 3 skills)
 - ✅ Stack profiles (Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI)
 - ✅ **Claude Code adapter** — fully working
-- ⏳ Kiro adapter — stub
+- ✅ **Kiro adapter** — fully working (generates `.kiro/steering/*` + `.kiro/FACTORY.md`)
 - ⏳ Cursor adapter — stub
 - ⏳ Codex CLI adapter — stub
 - ⏳ Windsurf adapter — stub

@@ -34,8 +34,8 @@ dont-do:
 
 platforms:
   - claude-code
+  - kiro           # generates .kiro/steering/* + .kiro/FACTORY.md
   # - cursor       # enable when cursor adapter ships
-  # - kiro
 
 notes: |
   This repo is the authoritative source for billing API contracts.
