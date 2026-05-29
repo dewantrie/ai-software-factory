@@ -200,29 +200,54 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 
 > A global `factory` binary is planned — `package.json` declares `bin: ./bin/factory.mjs`, but that file isn't built yet. Use the `npx tsx` form above until the bin script lands.
 
-## Status — Phase A
+## Status
 
-### Built
-- ✅ Core CLI (`install` command)
-- ✅ Manifest parsing + validation
-- ✅ Render engine (template substitution + context-file generation)
+### Phase A — foundation (shipped)
+
+- ✅ Manifest parsing + validation (`.factory.yaml`)
+- ✅ Render engine (template substitution + context-file composition)
 - ✅ Platform-neutral agent prompts (7 agents, 3 skills)
-- ✅ Stack profiles (Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI)
-- ✅ **Claude Code adapter** — fully working
-- ✅ **Kiro adapter** — fully working (generates `.kiro/steering/*` + `.kiro/FACTORY.md`)
-- ✅ **Codex CLI adapter** — fully working (generates `AGENTS.md` + `.codex/agents/*` + `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`)
-- ⏳ Cursor adapter — stub
-- ⏳ Windsurf adapter — stub
-- ✅ **`init` command** (interactive manifest wizard) — fully working
-- ✅ **`sync` command** (workspace-wide refresh) — fully working
-- ✅ **Cross-repo contract bridge** — `factory feature start / pull / ship / list / status` commands fully working (MVP)
+- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI
+- ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`
+- ✅ `factory install` command
 
-### Roadmap (Phase B)
-1. Wire up the 4 stub platform adapters.
-2. Build the `init` wizard.
-3. Build the `sync` command driven by a workspace file.
-4. Build the contracts repo skeleton and `feature` subcommands.
-5. Add more stack profiles (Rust+Axum, Bun+Hono, SvelteKit, Nuxt, React Native, .NET, Java/Spring).
+### Phase B — multi-platform + multi-repo (shipped)
+
+- ✅ **Kiro adapter** — generates `.kiro/steering/*` + `.kiro/FACTORY.md`
+- ✅ **Codex CLI adapter** — generates `AGENTS.md` + `.codex/agents/*` + executable bash orchestrators in `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`
+- ✅ `factory init` — interactive manifest wizard with stack auto-detection
+- ✅ `factory sync` — workspace-wide refresh driven by `factory.workspace.yaml`
+- ✅ `factory feature start / pull / ship / list / status` — cross-repo contract bridge (MVP)
+- ✅ Documentation: [`docs/walkthrough.md`](docs/walkthrough.md) (single repo) + [`docs/cross-repo.md`](docs/cross-repo.md) (polyrepo)
+
+### Build-on-demand (not blockers)
+
+These are deferred until you actually need them. Each is straightforward to add when the use case shows up.
+
+**Adapters**
+
+- ⏳ Cursor adapter (stub — target layout documented in `src/platforms/cursor.ts`)
+- ⏳ Windsurf adapter (stub — target layout documented in `src/platforms/windsurf.ts`)
+
+**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing four (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
+
+- Bun + Hono / Elysia
+- Rust + Axum / Actix
+- SvelteKit (fullstack)
+- Nuxt 3 (fullstack)
+- Django (Python)
+- React Native / Flutter (mobile)
+- Ruby on Rails
+- Spring Boot (Java)
+- .NET / ASP.NET Core
+
+**Chain ↔ contract-bridge integration** — currently the user invokes `factory feature pull / ship` manually around the chain. A future iteration can have the skill orchestrator auto-pull on start and auto-ship on completion.
+
+**Contract-format validation** — ensure the backend repo's emitted contract format (OpenAPI, proto, Zod, etc.) matches what the frontend repo's spec-writer expects.
+
+**Status locking** — protect against two developers running `feature ship` on the same repo simultaneously (rare in practice).
+
+**Global `factory` binary** — `package.json` declares `bin: ./bin/factory.mjs`, but that file isn't built yet. Until it lands, invoke via `npx tsx /path/to/ai-factory/src/cli.ts <command>`.
 
 ## How prompts work
 
