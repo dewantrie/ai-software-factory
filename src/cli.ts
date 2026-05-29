@@ -4,6 +4,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { install } from "./commands/install.js";
 import { init } from "./commands/init.js";
+import { sync } from "./commands/sync.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_FACTORY_ROOT = resolve(__dirname, "..");
@@ -45,10 +46,16 @@ program
 
 program
   .command("sync")
-  .description("Re-run install for all repos listed in a workspace manifest (not implemented yet).")
-  .action(() => {
-    console.log("`sync` is not implemented yet. Run `factory install` per repo for now.");
-    process.exit(1);
+  .description("Re-run install for every repo listed in a workspace file.")
+  .option("-w, --workspace <path>", "explicit workspace file path")
+  .option("-f, --factory-root <path>", "path to ai-factory checkout", DEFAULT_FACTORY_ROOT)
+  .option("--dry-run", "list what would be synced without writing files")
+  .action(async (opts) => {
+    await sync({
+      workspacePath: opts.workspace,
+      factoryRoot: opts.factoryRoot,
+      dryRun: opts.dryRun ?? false,
+    });
   });
 
 program.parseAsync(process.argv);

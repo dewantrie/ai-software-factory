@@ -1,0 +1,14 @@
+# Example workspace file for `factory sync`.
+#
+# Save this as one of:
+#   - factory.workspace.yaml in the directory where you run `factory sync`
+#   - workspace.yaml at the ai-factory checkout root
+#   - any path, then pass it via `factory sync --workspace <path>`
+#
+# Paths are resolved relative to THIS workspace file's directory.
+
+repos:
+  - ../billing-api
+  - ../billing-web
+  - ../billing-worker-go
+  - /Users/dony/Projects/customer-portal

@@ -197,7 +197,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ⏳ Cursor adapter — stub
 - ⏳ Windsurf adapter — stub
 - ✅ **`init` command** (interactive manifest wizard) — fully working
-- ⏳ `sync` command (workspace-wide refresh) — placeholder
+- ✅ **`sync` command** (workspace-wide refresh) — fully working
 - ⏳ Cross-repo contract bridge (`ai-factory-contracts` repo + `feature start` / `feature ship` commands) — not started
 
 ### Roadmap (Phase B)
