@@ -193,8 +193,8 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ✅ Stack profiles (Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI)
 - ✅ **Claude Code adapter** — fully working
 - ✅ **Kiro adapter** — fully working (generates `.kiro/steering/*` + `.kiro/FACTORY.md`)
+- ✅ **Codex CLI adapter** — fully working (generates `AGENTS.md` + `.codex/agents/*` + `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`)
 - ⏳ Cursor adapter — stub
-- ⏳ Codex CLI adapter — stub
 - ⏳ Windsurf adapter — stub
 - ⏳ `init` command (interactive manifest wizard) — placeholder
 - ⏳ `sync` command (workspace-wide refresh) — placeholder

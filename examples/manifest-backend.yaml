@@ -35,6 +35,7 @@ dont-do:
 platforms:
   - claude-code
   - kiro           # generates .kiro/steering/* + .kiro/FACTORY.md
+  - codex          # generates AGENTS.md + .codex/agents/* + .codex/orchestrator/*.sh
   # - cursor       # enable when cursor adapter ships
 
 notes: |
