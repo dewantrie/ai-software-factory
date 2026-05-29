@@ -1,8 +1,24 @@
 # Walkthrough: your first feature through the factory
 
-A complete worked example of one feature going through the Tier 3 chain. Use this as a template the first few times you run `/feature-factory`.
+A complete worked example of one feature going through the Tier 3 chain. Use this as a template the first few times you run the chain.
 
 The example feature: **"add invoice reminders"** — a daily job that emails customers when invoices are >7 days unpaid, plus a manual "send reminder now" button for admins. It touches both backend and frontend, so the full 7-agent chain runs.
+
+## How to invoke the chain — by platform
+
+The chain logic is identical across platforms; only the **entry point** differs. The rest of this walkthrough uses Claude Code syntax in the examples — translate the entry point per the table below.
+
+| Platform | Tier 3 entry | Tier 2 entry | Tier 1 entry |
+|----------|--------------|--------------|--------------|
+| Claude Code | `/feature-factory <request>` | `/quick-fix <description>` | `/spike <question>` |
+| Kiro | `#skill-feature-factory <request>` | `#skill-quick-fix <description>` | `#skill-spike <question>` |
+| Codex CLI | `./.codex/orchestrator/feature-factory.sh <request>` | `./.codex/orchestrator/quick-fix.sh <description>` | `./.codex/orchestrator/spike.sh <question>` |
+
+### Platform notes — read the one you'll use
+
+- **Claude Code** — the skill orchestrator is loaded into the main session and drives the chain automatically. Checkpoints pause the conversation; you reply with text. Tool scoping is enforced at the tool level.
+- **Kiro** — the skill orchestrator is a steering file the user (or Kiro's agentic chat) follows. Each agent is invoked separately via `#agent-<name>` after the skill tells you which one is next. Chain runs **semi-manually**. Tool scoping is prompt-only.
+- **Codex CLI** — the orchestrator is a **bash script** that calls `codex exec` per agent. Checkpoints pause via `read -p` in your terminal — type `yes` to continue, anything else to halt. All step outputs are saved under `.codex/runs/<timestamp>-<skill>/` for replay. Phase A: no automated fix loops yet — re-run after Critical validator findings.
 
 ## Before you start
 
@@ -22,11 +38,13 @@ Pick one that touches both backend and frontend but only ~5 files. You'll learn 
 
 ## Step 0 — kick off
 
-In your project, type:
+In your project, invoke the chain (substitute the entry from the platform table above):
 
 ```
 /feature-factory build invoice reminders — when an invoice has been unpaid for more than 7 days, send the customer a reminder email. Admins should also be able to send a reminder manually from the invoice page.
 ```
+
+(On Kiro: `#skill-feature-factory build invoice reminders — ...`. On Codex CLI: `./.codex/orchestrator/feature-factory.sh "build invoice reminders — ..."`.)
 
 ### What makes a good kickoff prompt
 
@@ -346,17 +364,18 @@ The orchestrator routes the change to the frontend-builder, re-runs validator, p
 
 ## Cheat sheet — what to type at each step
 
+**Entry points (platform-specific):** see the "How to invoke the chain — by platform" table at the top of this doc.
+
+**Mid-chain responses (same on every platform):**
+
 | Situation | Type |
 |-----------|------|
-| Starting a feature | `/feature-factory <plain-English description with behavior + condition + actor>` |
-| Bug fix / small change | `/quick-fix <description>` |
-| Just exploring | `/spike <question about the codebase>` |
 | Story approval | `approved` |
 | Story with answer to open questions | `approved, with: <answer1>, <answer2>` |
 | Story changes needed | `change AC<N> — <what to change>` or `not approved, <issue>` |
 | Brief approval | `approved` |
 | Brief changes needed | `<specific change>` — name the section and what to change |
-| Mid-chain interruption | `stop` or `cancel` |
+| Mid-chain interruption | `stop` or `cancel` (Claude Code / Kiro). On Codex CLI: reply anything other than `yes` at the checkpoint `read` prompt. |
 | Final review action | Read diff yourself, open PR yourself |
 
 ## Common mistakes when first using it
@@ -428,6 +447,6 @@ After 5–10 features in the same codebase, the chain knows your conventions col
 
 - Run the chain on one real (small) feature this week.
 - Watch where it stumbles. Add CLAUDE.md rules for each surprise.
-- Try `/quick-fix` on a single-layer bug next — that's the Tier 2 chain.
-- Try `/spike` on a "how does X work" question — that's Tier 1.
+- Try the Tier 2 chain (quick-fix) on a single-layer bug next.
+- Try the Tier 1 chain (spike) on a "how does X work" question.
 - After 3–4 features, you'll know whether to add more stack profiles or wire up additional platforms (Cursor, Kiro, etc.).
