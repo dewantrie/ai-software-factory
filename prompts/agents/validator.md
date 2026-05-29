@@ -28,13 +28,12 @@ For each item, produce a finding (with `file:line`) or confirm no issue.
 - For each "Pattern to reuse" with a `file:line`, verify the new code actually uses it. If duplicated logic exists instead: **Important**.
 - For each Risk in the brief, verify it was addressed.
 
-### 3. Security and safety (cross-reference `{{CONTEXT_FILE}}`)
-- Auth: every new endpoint or RPC has the auth check required by `{{CONTEXT_FILE}}`. Cite the line.
-- Tenant isolation: every operation touching tenant data is tenant-scoped per `{{CONTEXT_FILE}}`. **Critical** if missing.
-- Secrets: no secrets, tokens, or sensitive payloads in logs, error messages, or client-visible responses.
+### 3. Safety (project-rule compliance — security details handled by security-reviewer)
 - Errors: production paths use the error-handling pattern from `{{CONTEXT_FILE}}` (typed exceptions, sentinel errors, `Result<T, E>`, error enums — whatever the project uses). Raw / unstructured errors are forbidden if `{{CONTEXT_FILE}}` says so.
-- Input validation: every endpoint validates its input before use, per `{{CONTEXT_FILE}}`.
 - IDs: server-generated, not client-provided (if `{{CONTEXT_FILE}}` requires this).
+- Tenant scoping: confirm every operation touching tenant data is tenant-scoped per `{{CONTEXT_FILE}}`. (The security-reviewer also checks this — be redundant.) **Critical** if missing.
+
+> **Security and performance findings** are owned by `security-reviewer` and `performance-reviewer`. Do NOT duplicate their checklists here. Cross-reference only when their findings overlap a story-coverage gap (e.g., an AC says "tenant-scoped" and you can't find tenant scoping — that's both a story-coverage and a security finding; report it here under story coverage).
 
 ### 4. Quality
 - No duplicate logic that should reuse existing helpers (use the researcher's findings to check).

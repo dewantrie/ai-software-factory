@@ -1,12 +1,12 @@
 # ai-factory
 
-Central factory for the 7-agent software factory pattern. Generates platform-specific files (Claude Code, Kiro, Cursor, Codex CLI, Windsurf) for many polyrepos from a single source of truth.
+Central factory for a 12-agent software factory pattern. Generates platform-specific files (Claude Code, Kiro, Cursor, Codex CLI, Windsurf) for many polyrepos from a single source of truth.
 
 Designed for the case: **many repos, many techs, many AI platforms.**
 
 ## What it is
 
-- **Prompts library** — 7 agent + 3 skill prompts written once, platform-neutral and stack-neutral.
+- **Prompts library** — 12 agent + 3 skill prompts written once, platform-neutral and stack-neutral.
 - **Profile library** — pre-written rule packs per stack (Next.js, Node+Fastify, Go+Echo, Python+FastAPI, etc.).
 - **Platform adapters** — code that renders prompts + profile + per-repo manifest into the right files for each AI platform.
 - **CLI** — `factory install` reads `.factory.yaml` in any repo and generates everything.
@@ -49,10 +49,14 @@ sequenceDiagram
     Orchestrator->>Human: present brief
     Human->>Orchestrator: approved
 
+    Orchestrator->>Agents: invoke migration-author (scoped to migrations)
+    Agents-->>Orchestrator: migration files + safety notes<br/>(or "Not applicable" if no schema changes)
     Orchestrator->>Agents: invoke backend-builder (scoped edit)
     Agents-->>Orchestrator: files + API contract + test results
     Orchestrator->>Agents: invoke frontend-builder (scoped edit)<br/>(passes API contract verbatim)
     Agents-->>Orchestrator: files + test results
+    Orchestrator->>Agents: invoke devops-builder (scoped to infra)
+    Agents-->>Orchestrator: CI/IaC files<br/>(or "Not applicable" if no infra changes)
     Orchestrator->>Agents: invoke test-verifier (test files only)
     Agents-->>Orchestrator: pass/fail per acceptance criterion
 
@@ -63,15 +67,22 @@ sequenceDiagram
         Agents-->>Orchestrator: pass/fail
     end
 
+    Orchestrator->>Agents: invoke security-reviewer (read-only)
+    Agents-->>Orchestrator: security findings (Critical / Important / Minor)
+    Orchestrator->>Agents: invoke performance-reviewer (read-only)
+    Agents-->>Orchestrator: perf findings (Critical / Important / Minor)
     Orchestrator->>Agents: invoke validator (read-only)
-    Agents-->>Orchestrator: findings (Critical / Important / Minor)
+    Agents-->>Orchestrator: project-rule findings (Critical / Important / Minor)
 
-    opt Critical findings (max 3 iterations)
+    opt Critical findings from any reviewer (max 3 iterations)
         Orchestrator->>Agents: re-invoke responsible builder
         Agents-->>Orchestrator: fixed
-        Orchestrator->>Agents: re-invoke validator
+        Orchestrator->>Agents: re-invoke the reviewer that flagged it
         Agents-->>Orchestrator: findings
     end
+
+    Orchestrator->>Agents: invoke doc-writer (scoped to docs/)
+    Agents-->>Orchestrator: CHANGELOG + README + migration guide<br/>+ suggested PR description
 
     Note over Human,Orchestrator: ⏸ CHECKPOINT 3
     Orchestrator->>Human: final summary + suggested PR title/body
@@ -206,7 +217,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 
 - ✅ Manifest parsing + validation (`.factory.yaml`)
 - ✅ Render engine (template substitution + context-file composition)
-- ✅ Platform-neutral agent prompts (7 agents, 3 skills)
+- ✅ Platform-neutral agent prompts (12 agents, 3 skills)
 - ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java)
 - ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`
 - ✅ `factory install` command

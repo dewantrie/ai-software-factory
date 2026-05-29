@@ -100,8 +100,8 @@ Kiro does not have a Claude-Code-style subagent system, so the chain runs **semi
    \`\`\`
    #skill-feature-factory build invoice reminders for invoices unpaid > 7 days
    \`\`\`
-2. Follow the skill's instructions. Each step calls a specific agent:
-   \`#agent-researcher\` → \`#agent-story-writer\` → **(approve story)** → \`#agent-spec-writer\` → **(approve brief)** → \`#agent-backend-builder\` → \`#agent-frontend-builder\` → \`#agent-test-verifier\` → \`#agent-validator\`.
+2. Follow the skill's instructions. Each step calls a specific agent in this order:
+   \`#agent-researcher\` → \`#agent-story-writer\` → **(approve story)** → \`#agent-spec-writer\` → **(approve brief)** → \`#agent-migration-author\` (skip if no schema changes) → \`#agent-backend-builder\` → \`#agent-frontend-builder\` (skip if backend-only) → \`#agent-devops-builder\` (skip if no infra) → \`#agent-test-verifier\` → \`#agent-security-reviewer\` → \`#agent-performance-reviewer\` → \`#agent-validator\` → \`#agent-doc-writer\`.
 3. Review the final diff and open the PR.
 
 ### Tier 2 — small change (\`#skill-quick-fix\`)

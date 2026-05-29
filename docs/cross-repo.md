@@ -99,7 +99,10 @@ The chain runs in **backend-only mode** because the brief will have zero fronten
 
 ```
 researcher → (skip story-writer — story already exists) → spec-writer → ⏸ approve brief →
-  backend-builder → test-verifier → validator → ⏸ approve PR
+  migration-author (if schema changes) → backend-builder →
+  devops-builder (if CI/infra changes) → test-verifier →
+  security-reviewer → performance-reviewer → validator →
+  doc-writer → ⏸ approve PR
 ```
 
 When the backend builder finishes, it emits an API contract — typically saved at `docs/api/invoice-reminders.openapi.yaml` (or wherever your project keeps contracts).
@@ -170,7 +173,10 @@ The frontend chain runs in **frontend-only mode** (manifest says `layer: fronten
 
 ```
 researcher → (skip story-writer) → spec-writer (consumes the pulled API contract) →
-  ⏸ approve brief → frontend-builder → test-verifier → validator → ⏸ approve PR
+  ⏸ approve brief → frontend-builder →
+  devops-builder (if CI/infra changes) → test-verifier →
+  security-reviewer → performance-reviewer → validator →
+  doc-writer → ⏸ approve PR
 ```
 
 The spec-writer reads the API contract from `.factory/features/invoice-reminders/api.yaml` and writes the brief consuming it verbatim. The frontend-builder calls the endpoint as specified.

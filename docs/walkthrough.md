@@ -2,7 +2,7 @@
 
 A complete worked example of one feature going through the Tier 3 chain in **a single repo**. Use this as a template the first few times you run the chain.
 
-The example feature: **"add invoice reminders"** — a daily job that emails customers when invoices are >7 days unpaid, plus a manual "send reminder now" button for admins. It touches both backend and frontend, so the full 7-agent chain runs.
+The example feature: **"add invoice reminders"** — a daily job that emails customers when invoices are >7 days unpaid, plus a manual "send reminder now" button for admins. It touches both backend and frontend, so the full 12-agent chain runs.
 
 > **Polyrepo?** If your backend and frontend live in **separate repos**, see [`cross-repo.md`](cross-repo.md) instead. That walkthrough covers the contract-bridge workflow (`factory feature start / pull / ship`) on top of the per-repo chain explained here.
 
@@ -294,17 +294,27 @@ two changes:
 
 **If the brief has Open Questions, do NOT type `approved`.** Answer them or push back. The brief is not ready while questions are open.
 
-## Steps 4–7 — builders, verifier, validator (no input from you)
+## Steps 4–12 — build, verify, review, document (no input from you)
 
-After step 3 approval, the chain runs automatically:
+After step 3 approval, the chain runs automatically through nine more agent invocations:
 
 ```
-backend-builder runs    → emits files + API contract
-frontend-builder runs   → consumes the contract, writes UI files
-test-verifier runs      → writes acceptance tests, runs them
+migration-author runs    → writes DB migrations safely
+                        (or returns "Not applicable" if brief has no schema changes)
+backend-builder runs     → emits files + API contract
+frontend-builder runs    → consumes the contract, writes UI files
+                        (or skipped if backend-only)
+devops-builder runs      → updates CI/IaC if the brief listed infra files
+                        (or returns "Not applicable")
+test-verifier runs       → writes acceptance tests, runs them
                         (if any AC fails → routes back to relevant builder, max 3 loops)
-validator runs          → checks code vs story + brief
-                        (if Critical → routes back, max 3 loops)
+security-reviewer runs   → read-only OWASP-flavored audit
+                        (findings grouped Critical / Important / Minor)
+performance-reviewer runs → read-only perf audit (N+1, hot paths)
+validator runs           → checks code vs story + brief
+                        (if any reviewer finds Critical → routes back to builder, max 3 loops)
+doc-writer runs          → CHANGELOG, README updates, migration guides,
+                        suggested PR description bullets
 ```
 
 You may see status updates between agents but no checkpoints. The fix loops are bounded — after 3 failed attempts on the same error, the orchestrator stops and surfaces the situation to you.
@@ -390,7 +400,7 @@ The orchestrator routes the change to the frontend-builder, re-runs validator, p
 
 4. **Not updating CLAUDE.md when the agent surprises you.** The chain only improves if you write down what the agent got wrong. Add a rule. After 2–3 weeks, the chain stops surprising you.
 
-5. **Running Tier 3 on a typo.** The triage gate should catch this, but if it slips through, you'll burn 7 agent invocations on a CSS color change. Just edit directly for small things.
+5. **Running Tier 3 on a typo.** The triage gate should catch this, but if it slips through, you'll burn up to 12 agent invocations on a CSS color change. Just edit directly for small things.
 
 6. **Approving a brief with Open Questions.** Open Questions mean the brief is not ready. Answer them first.
 
