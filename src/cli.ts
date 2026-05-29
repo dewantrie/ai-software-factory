@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { install } from "./commands/install.js";
+import { init } from "./commands/init.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_FACTORY_ROOT = resolve(__dirname, "..");
@@ -31,9 +32,15 @@ program
 program
   .command("init")
   .description("Interactive: create a .factory.yaml manifest in the current directory.")
-  .action(() => {
-    console.log("`init` is not implemented yet. For now, copy examples/manifest-backend.yaml or manifest-frontend.yaml from the ai-factory repo and edit.");
-    process.exit(1);
+  .option("-t, --target <path>", "target repo root", ".")
+  .option("-f, --factory-root <path>", "path to ai-factory checkout", DEFAULT_FACTORY_ROOT)
+  .option("--force", "overwrite an existing .factory.yaml")
+  .action(async (opts) => {
+    await init({
+      targetRoot: opts.target,
+      factoryRoot: opts.factoryRoot,
+      force: opts.force ?? false,
+    });
   });
 
 program

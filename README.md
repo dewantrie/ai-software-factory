@@ -196,7 +196,7 @@ This reads your manifest, loads the matching profile, and writes platform-specif
 - ✅ **Codex CLI adapter** — fully working (generates `AGENTS.md` + `.codex/agents/*` + `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`)
 - ⏳ Cursor adapter — stub
 - ⏳ Windsurf adapter — stub
-- ⏳ `init` command (interactive manifest wizard) — placeholder
+- ✅ **`init` command** (interactive manifest wizard) — fully working
 - ⏳ `sync` command (workspace-wide refresh) — placeholder
 - ⏳ Cross-repo contract bridge (`ai-factory-contracts` repo + `feature start` / `feature ship` commands) — not started
 
