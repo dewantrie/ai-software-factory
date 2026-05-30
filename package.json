@@ -1,7 +1,7 @@
 {
   "name": "@ai-factory/cli",
   "version": "0.1.0",
-  "description": "Central factory for the 7-agent software factory pattern across many repos and AI platforms.",
+  "description": "Central factory for a 12-agent software factory pattern across many repos and AI platforms.",
   "type": "module",
   "bin": {
     "factory": "./bin/factory.mjs"

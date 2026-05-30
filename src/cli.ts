@@ -20,7 +20,7 @@ const program = new Command();
 
 program
   .name("factory")
-  .description("Central factory for the 7-agent software factory pattern.")
+  .description("Central factory for the 12-agent software factory pattern.")
   .version("0.1.0");
 
 program

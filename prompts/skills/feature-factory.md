@@ -1,6 +1,6 @@
 # Feature Factory — Tier 3 (Full Chain)
 
-Full 7-agent chain for substantive new features. Use when the work touches multiple layers, changes schema, adds API contracts, or is otherwise non-trivial. Includes three human checkpoints (story approval, brief approval, PR review).
+Full 12-agent chain for substantive new features. Use when the work touches multiple layers, changes schema, adds API contracts, or is otherwise non-trivial. Includes three human checkpoints (story approval, brief approval, PR review).
 
 You are orchestrating the feature factory. Follow this sequence exactly. Do NOT skip steps. Do NOT combine agents. Do NOT edit files yourself — the builders do that.
 
