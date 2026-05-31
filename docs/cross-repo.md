@@ -52,25 +52,55 @@ cd billing-web && factory install
 
 ## Step 1 — author the story (in the backend repo)
 
-Start where the feature originates. Usually that's the backend repo for an API-led feature, but any implementing repo can be the author.
+Start where the feature originates. Usually that's the backend repo for an API-led feature, but any implementing repo can be the author. Two flavors:
+
+### 1a. Engineer-authored story
 
 ```bash
 cd billing-api
 factory feature start invoice-reminders
 ```
 
-Output:
+Scaffolds an empty story template that the engineer edits.
+
+### 1b. PM-authored story (imported from Claude.ai / ChatGPT / Notion / wherever)
+
+When a non-engineer (PM, designer, domain expert) drafted the story externally — in a chat tool, a doc, a ticket — the engineer imports it via `--from`:
+
+```bash
+cd billing-api
+factory feature start invoice-reminders --from ~/Downloads/pm-story.md
+```
+
+What this does:
+- Reads the local markdown file.
+- Light validation: warns if `## User Story` or `## Acceptance Criteria` sections are missing (but proceeds — the chain's spec-writer will catch it later).
+- Writes the file's content as `features/invoice-reminders/story.md` in the contracts repo.
+- Creates `status.yaml` the same as the engineer-authored path.
+
+The factory has zero opinion on **where** the PM authored the story (claude.ai, ChatGPT, Cursor chat, Notion, Linear, Google Docs — anything that exports markdown). The engineer just lands the text in the contracts repo as `story.md`.
+
+### Story-quality contract — same for both flavors
+
+The chain assumes the story has:
+- A `## User Story` block with `As a / I want / So that` lines.
+- A numbered `## Acceptance Criteria` list — each item testable.
+- An `## Out of Scope` list.
+- An `## Open Questions` list (or `None`).
+
+If any section is missing, the spec-writer will stop and ask. So if you're an engineer importing a PM's draft, **review it before running the chain** — fix structural gaps, answer obvious questions, then commit.
+
+### Output (either flavor)
 
 ```
 Created feature scaffold: <abs-path>/ai-factory-contracts/features/invoice-reminders
+Seeded story.md from: <path>            # only printed when --from was used
 
 Next steps:
-  1. Edit <path>/story.md with the user story + acceptance criteria.
+  1. Review <path>/story.md — the story is in place; tweak if needed.
   2. Commit the contracts repo (so other repos can pull it).
   3. In each implementing repo, run: factory feature pull invoice-reminders
 ```
-
-Edit `ai-factory-contracts/features/invoice-reminders/story.md` — fill in the user story, acceptance criteria, edge cases, out-of-scope, open questions.
 
 **Why the story lives in the contracts repo and not in each implementing repo:** so backend and frontend cannot drift on what the feature actually *is*. One file, one definition of done, two implementations.
 

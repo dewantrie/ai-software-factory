@@ -71,11 +71,13 @@ const featureCmd = program
 
 featureCmd
   .command("start <name>")
-  .description("Create a feature scaffold (story.md + status.yaml) in the contracts repo.")
+  .description("Create a feature scaffold (story.md + status.yaml) in the contracts repo. Use --from to seed story.md from a PM-authored markdown file.")
   .option("-c, --contracts-repo <path>", "override the contracts-repo path")
+  .option("--from <path>", "seed story.md from a local markdown file (e.g., a PM's export from Claude.ai / ChatGPT / Notion)")
   .action(async (name, opts) => {
     await featureStart(name, {
       contractsRepo: opts.contractsRepo,
+      from: opts.from,
       cwd: process.cwd(),
     });
   });

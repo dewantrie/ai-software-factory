@@ -20,9 +20,14 @@ export interface FeatureCommonOptions {
 
 /* ----- start ----- */
 
+export interface FeatureStartOptions extends FeatureCommonOptions {
+  /** Optional path to a markdown file to seed story.md (PM-authored externally). */
+  from?: string;
+}
+
 export async function featureStart(
   name: string,
-  opts: FeatureCommonOptions,
+  opts: FeatureStartOptions,
 ): Promise<void> {
   const contractsRepo = resolveContractsRepo({ explicit: opts.contractsRepo, cwd: opts.cwd });
   const dir = featureDir(contractsRepo, name);
@@ -31,10 +36,26 @@ export async function featureStart(
     throw new Error(`Feature already exists: ${dir}`);
   }
 
+  // Resolve --from BEFORE creating the dir, so a missing file doesn't leave a half-created feature
+  let storyBody: string;
+  let storySource: "template" | string;
+  if (opts.from) {
+    const fromPath = resolve(opts.cwd, opts.from);
+    if (!existsSync(fromPath)) {
+      throw new Error(`--from file not found: ${fromPath}`);
+    }
+    storyBody = readFileSync(fromPath, "utf8");
+    storySource = fromPath;
+    warnIfStoryMissingSections(storyBody);
+  } else {
+    storyBody = storyTemplate(name);
+    storySource = "template";
+  }
+
   mkdirSync(dir, { recursive: true });
 
   const storyPath = join(dir, "story.md");
-  writeFileSync(storyPath, storyTemplate(name));
+  writeFileSync(storyPath, storyBody);
 
   const status: FeatureStatus = {
     feature: name,
@@ -44,11 +65,33 @@ export async function featureStart(
   saveStatus(contractsRepo, status);
 
   console.log(`Created feature scaffold: ${dir}`);
+  if (storySource !== "template") {
+    console.log(`Seeded story.md from: ${storySource}`);
+  }
   console.log("");
   console.log("Next steps:");
-  console.log(`  1. Edit ${storyPath} with the user story + acceptance criteria.`);
-  console.log(`  2. Commit the contracts repo (so other repos can pull it).`);
-  console.log(`  3. In each implementing repo, run: factory feature pull ${name}`);
+  if (storySource === "template") {
+    console.log(`  1. Edit ${storyPath} with the user story + acceptance criteria.`);
+    console.log(`  2. Commit the contracts repo (so other repos can pull it).`);
+    console.log(`  3. In each implementing repo, run: factory feature pull ${name}`);
+  } else {
+    console.log(`  1. Review ${storyPath} — the PM's story is in place; tweak if needed.`);
+    console.log(`  2. Commit the contracts repo (so other repos can pull it).`);
+    console.log(`  3. In each implementing repo, run: factory feature pull ${name}`);
+  }
+}
+
+function warnIfStoryMissingSections(body: string): void {
+  const required = [
+    { name: "User Story", pattern: /^#{1,3}\s*User Story/im },
+    { name: "Acceptance Criteria", pattern: /^#{1,3}\s*Acceptance Criteria/im },
+  ];
+  const missing = required.filter((s) => !s.pattern.test(body)).map((s) => s.name);
+  if (missing.length > 0) {
+    console.warn(`⚠ Imported story is missing these sections: ${missing.join(", ")}`);
+    console.warn("  The chain's spec-writer will stop and ask if they're truly absent.");
+    console.warn("  Edit story.md to add them, OR proceed and let the chain flag it.");
+  }
 }
 
 /* ----- pull ----- */
