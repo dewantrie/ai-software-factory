@@ -20,7 +20,7 @@ The chain is structured so the human stays in the loop where judgment matters, a
 | Layer | Owner | What it does |
 |-------|-------|--------------|
 | Orchestrator (skill) | AI, driven by human input | Chain logic. Decides which agent to invoke next. Pauses for human checkpoints. Routes failures back to the right builder. Does NOT edit files. |
-| Specialist agents (7) | AI, with restricted tools | Each does one job in its own fresh context window. Tool scoping prevents agents from doing each other's work. |
+| Specialist agents (12) | AI, with restricted tools | Each does one job in its own fresh context window. Tool scoping prevents agents from doing each other's work. |
 | Reviewer | Human | Approves story, approves brief, reviews diff before merge. Tunes the rules over time. |
 
 ### The Tier 3 flow (full chain)
