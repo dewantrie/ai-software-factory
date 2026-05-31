@@ -136,11 +136,14 @@ export async function init(opts: InitOptions): Promise<void> {
   }
 
   // 7. Compose the manifest
+  // Note: `factory-repo` is intentionally NOT written. The global `factory`
+  // binary already knows where its checkout lives; baking a developer-specific
+  // local path into a team-shared manifest causes portability headaches.
   const manifest = composeManifest({
     name,
     layer,
     profile,
-    factoryRoot: opts.factoryRoot,
+    factoryRoot: undefined,
     contractsRepo,
     commands: { typecheck, lint, test, acceptance: acceptance || undefined },
     paths: pathDefaults,
@@ -182,7 +185,8 @@ interface ComposeArgs {
   name: string;
   layer: Layer;
   profile: string;
-  factoryRoot: string;
+  /** Optional. Left undefined by default — see init's manifest-composition note. */
+  factoryRoot: string | undefined;
   contractsRepo: string | undefined;
   commands: { typecheck: string; lint: string; test: string; acceptance?: string };
   paths: NonNullable<ReturnType<typeof parseProfileDefaults>["paths"]>;

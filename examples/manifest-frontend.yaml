@@ -5,8 +5,8 @@ name: billing-web
 layer: frontend
 profile: nextjs-app-router
 
-factory-repo: ../ai-factory
 contracts-repo: ../ai-factory-contracts
+# factory-repo is intentionally omitted — see manifest-backend.yaml for why.
 
 commands:
   typecheck: pnpm typecheck

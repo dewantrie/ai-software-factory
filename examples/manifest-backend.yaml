@@ -5,8 +5,10 @@ name: billing-api
 layer: backend
 profile: node-fastify
 
-factory-repo: ../ai-factory
 contracts-repo: ../ai-factory-contracts
+# factory-repo is intentionally omitted — the global `factory` binary
+# already knows where the central checkout lives. Don't bake a
+# developer-specific local path into a team-shared manifest.
 
 commands:
   typecheck: pnpm typecheck

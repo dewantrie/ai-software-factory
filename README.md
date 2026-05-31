@@ -169,7 +169,8 @@ In each project repo, create `.factory.yaml` (either run `factory init`, or copy
 name: billing-api                          # repo identifier (required)
 layer: backend                             # backend | frontend | worker | mobile | fullstack (required)
 profile: node-fastify                      # file in profiles/ without .md (required)
-factory-repo: ../ai-factory                # path to this checkout (optional, informational)
+# factory-repo: omitted on purpose — the global `factory` binary knows where it is.
+# Only set this if you want to pin a specific local checkout for an unusual workflow.
 contracts-repo: ../ai-factory-contracts    # cross-repo contract dir (optional, Phase B)
 
 commands:                                  # required — agents read these
