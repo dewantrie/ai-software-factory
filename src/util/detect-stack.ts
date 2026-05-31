@@ -57,6 +57,17 @@ export function detectStack(targetRoot: string): DetectedStack {
       if ("next" in deps) {
         return { layer: "fullstack", profile: "nextjs-app-router", reason: "next in dependencies" };
       }
+      // React + rsbuild + Module Federation (micro-frontend monorepo)
+      if (
+        ("@module-federation/enhanced" in deps || "@module-federation/rsbuild-plugin" in deps) &&
+        "@rsbuild/core" in deps
+      ) {
+        return {
+          layer: "frontend",
+          profile: "react-rsbuild-microfrontend",
+          reason: "Module Federation + rsbuild detected",
+        };
+      }
       // Bun + Hono
       if ("hono" in deps || (bunSignals && !("fastify" in deps))) {
         return {
