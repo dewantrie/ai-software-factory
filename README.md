@@ -135,8 +135,12 @@ Each project repo gets a small `.factory.yaml` manifest (~20 lines) declaring la
 
 ```bash
 cd ai-factory
-npm install
+pnpm install            # or `npm install`
+pnpm link --global      # or `npm link` — exposes `factory` globally
+factory --version       # should print the version
 ```
+
+That makes `factory` available from any directory. Skip the `link` step if you'd rather invoke via `npx tsx src/cli.ts <command>` from inside the ai-factory checkout.
 
 ## Commands at a glance
 
@@ -151,7 +155,7 @@ npm install
 | `factory feature list` | Lists features in the contracts repo with ship counts. |
 | `factory feature status <name>` | Shows which repos have shipped a feature, when, and at what commit. |
 
-Until the `factory` binary is wired up, invoke any command via `npx tsx /path/to/ai-factory/src/cli.ts <command>`.
+After [installing](#install) and linking the CLI globally, invoke any of these with just `factory <command>` from any directory. Otherwise run them as `npx tsx /path/to/ai-factory/src/cli.ts <command>`.
 
 ## Usage
 
@@ -204,12 +208,12 @@ notes: |                                   # optional — free-form prose append
 Then run from your project repo:
 
 ```bash
+factory install        # if you ran `pnpm link --global`
+# or:
 npx tsx /path/to/ai-factory/src/cli.ts install
 ```
 
 This reads your manifest, loads the matching profile, and writes platform-specific files (e.g., `.claude/agents/*.md` + `CLAUDE.md` for Claude Code).
-
-> A global `factory` binary is planned — `package.json` declares `bin: ./bin/factory.mjs`, but that file isn't built yet. Use the `npx tsx` form above until the bin script lands.
 
 ## Status
 
@@ -257,7 +261,7 @@ These are deferred until you actually need them. Each is straightforward to add 
 
 **Status locking** — protect against two developers running `feature ship` on the same repo simultaneously (rare in practice).
 
-**Global `factory` binary** — `package.json` declares `bin: ./bin/factory.mjs`, but that file isn't built yet. Until it lands, invoke via `npx tsx /path/to/ai-factory/src/cli.ts <command>`.
+~~Global `factory` binary~~ — **shipped.** `bin/factory.mjs` is a tsx-spawn shim; `pnpm link --global` (or `npm link`) installs it globally so `factory <command>` works from any directory.
 
 ## How prompts work
 
