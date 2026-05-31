@@ -215,6 +215,76 @@ npx tsx /path/to/ai-factory/src/cli.ts install
 
 This reads your manifest, loads the matching profile, and writes platform-specific files (e.g., `.claude/agents/*.md` + `CLAUDE.md` for Claude Code).
 
+## Keeping things in sync (updating)
+
+Three layers can drift over time: the central `ai-factory` checkout, the global `factory` binary, and the per-repo generated files. Update flow:
+
+### Refresh the central factory
+
+```bash
+cd /path/to/ai-factory
+git pull                # pulls new prompts, profiles, adapter changes
+pnpm install            # only if dependencies changed
+```
+
+The `pnpm link --global` from initial setup still points at this directory, so the global `factory` command picks up new code automatically — no re-link needed unless you blew away `node_modules`.
+
+### Refresh one project
+
+In any repo that already has `.factory.yaml`:
+
+```bash
+cd /path/to/your-project
+factory install
+git status                                    # see what changed
+git add CLAUDE.md .claude .factory.yaml       # whatever the diff shows
+git commit -m "chore: update factory artifacts"
+```
+
+That's it. Re-running install regenerates everything from the current state of the central factory. The new agents / prompts / profile rules land in place.
+
+### Refresh many projects at once
+
+If you maintain a workspace file listing your repos:
+
+```bash
+factory sync               # re-installs every listed repo
+factory sync --dry-run     # preview what would happen
+```
+
+Useful when a central prompt or profile change needs to propagate across 5+ repos.
+
+### What gets preserved vs overwritten
+
+| Overwritten on every install | Preserved |
+|------------------------------|-----------|
+| `CLAUDE.md` | `.factory.yaml` (your manifest — never overwritten) |
+| `.claude/agents/*.md`, `.claude/skills/*/SKILL.md` | `.gitignore` (your changes stay) |
+| `.kiro/steering/*`, `.kiro/FACTORY.md` (if Kiro platform) | Anything else in the repo (`src/`, `tests/`, etc.) |
+| `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh`, `.codex/FACTORY.md` (if Codex platform) | `.codex/runs/**` (run history — never touched) |
+
+**Hard rule:** never hand-edit generated files. Edit the manifest, the profile, or the central prompts — then re-run `factory install`. Otherwise your edits are lost next sync.
+
+### When you need to change something — where to edit
+
+| You want to change | Edit |
+|--------------------|------|
+| The repo's commands, paths, or repo-specific don't-do rules | `.factory.yaml` in that project repo |
+| Architecture rules / conventions for a whole stack | `ai-factory/profiles/<name>.md`, then sync all repos using that profile |
+| An agent's behavior (e.g., make validator stricter) | `ai-factory/prompts/agents/<name>.md` |
+| The orchestration chain | `ai-factory/prompts/skills/feature-factory.md` |
+| Platform-specific output shape | `ai-factory/src/platforms/<name>.ts` |
+
+After editing anything in the central `ai-factory/`: `git push` → in each project: `factory install` (or one-shot `factory sync`).
+
+### TL;DR
+
+```bash
+(cd /path/to/ai-factory && git pull)        # 1. refresh central
+cd /path/to/your-project                    # 2. enter project
+factory install                             # 3. regenerate
+```
+
 ## Status
 
 ### Phase A — foundation (shipped)
