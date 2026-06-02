@@ -293,7 +293,7 @@ factory install                             # 3. regenerate
 - ✅ Manifest parsing + validation (`.factory.yaml`)
 - ✅ Render engine (template substitution + context-file composition)
 - ✅ Platform-neutral agent prompts (12 agents, 3 skills)
-- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java), React + rsbuild + Module Federation (micro-frontend)
+- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java), React + rsbuild + Module Federation (micro-frontend), Python library
 - ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`
 - ✅ `factory install` command
 
