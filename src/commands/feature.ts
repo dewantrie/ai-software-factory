@@ -277,7 +277,6 @@ function readLocalRepoIdentity(cwd: string, nameOverride: string | undefined, la
 
   const manifestPath = resolve(cwd, ".factory.yaml");
   if (!existsSync(manifestPath)) {
-    if (nameOverride && layerOverride) return { name: nameOverride, layer: layerOverride };
     throw new Error(
       `No .factory.yaml in ${cwd}. Pass --repo-name and --layer explicitly, or run from a managed repo.`,
     );

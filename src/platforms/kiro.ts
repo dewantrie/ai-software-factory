@@ -9,8 +9,8 @@ import { buildContextFile, render } from "../render.js";
  *
  * Generates a `.kiro/steering/` directory:
  *   - `project.md` — always-included context (built from manifest + profile)
- *   - `agent-<name>.md` × 7 — manual-inclusion agent prompts
- *   - `skill-<name>.md` × 3 — manual-inclusion orchestrator skills
+ *   - `agent-<name>.md` × N — manual-inclusion agent prompts (one per prompts/agents/*)
+ *   - `skill-<name>.md` × N — manual-inclusion orchestrator skills (one per prompts/skills/*)
  * And a `.kiro/FACTORY.md` companion doc explaining the layout.
  *
  * Invocation in Kiro chat: type `#agent-researcher`, `#skill-feature-factory`, etc.

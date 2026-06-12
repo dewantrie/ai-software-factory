@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { resolve, dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { install } from "./commands/install.js";
 import { init } from "./commands/init.js";
@@ -16,12 +17,21 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_FACTORY_ROOT = resolve(__dirname, "..");
 
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(DEFAULT_FACTORY_ROOT, "package.json"), "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
 const program = new Command();
 
 program
   .name("factory")
   .description("Central factory for the 12-agent software factory pattern.")
-  .version("0.1.0");
+  .version(packageVersion());
 
 program
   .command("install")

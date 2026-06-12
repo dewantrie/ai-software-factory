@@ -9,8 +9,8 @@ import { buildContextFile, render } from "../render.js";
  *
  * Generates:
  *   - AGENTS.md (repo root)                — auto-loaded project context
- *   - .codex/agents/<name>.md         × 7  — agent prompt bodies (read by orchestrator)
- *   - .codex/orchestrator/<skill>.sh  × 3  — bash chains using `codex exec`
+ *   - .codex/agents/<name>.md         × N  — agent prompt bodies, one per prompts/agents/* (read by orchestrator)
+ *   - .codex/orchestrator/<skill>.sh  × N  — bash chains using `codex exec`, one per prompts/skills/*
  *   - .codex/FACTORY.md                    — explains the layout and usage
  *
  * The orchestrator scripts implement the chain logic in shell:

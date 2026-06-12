@@ -80,9 +80,13 @@ export function detectStack(targetRoot: string): DetectedStack {
       if ("fastify" in deps) {
         return { layer: "backend", profile: "node-fastify", reason: "fastify in dependencies" };
       }
-      // React (probably frontend)
+      // React + Vite SPA (no backend deps)
+      if ("react" in deps && "vite" in deps && !("express" in deps) && !("fastify" in deps)) {
+        return { layer: "frontend", profile: "react-vite", reason: "react + vite in dependencies" };
+      }
+      // React without a recognized bundler — default to the Vite SPA profile
       if ("react" in deps && !("express" in deps) && !("fastify" in deps)) {
-        return { layer: "frontend", profile: "nextjs-app-router", reason: "react without backend deps" };
+        return { layer: "frontend", profile: "react-vite", reason: "react without backend deps" };
       }
       // Fallback Node backend
       return { layer: "backend", profile: "node-fastify", reason: "package.json present, no stack signal" };

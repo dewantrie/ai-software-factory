@@ -54,8 +54,6 @@ export const claudeCode: PlatformAdapter = {
     // 2. Write each agent to .claude/agents/<name>.md with Claude Code frontmatter
     const platformVars = {
       CONTEXT_FILE: "CLAUDE.md",
-      PLATFORM_HINT:
-        "On Claude Code, this agent is invoked via the `Agent` tool with subagent_type. Tool scoping is enforced by the `tools:` frontmatter — paths are not enforced at the tool level, only by prompt + the scope rules in CLAUDE.md.",
     };
     for (const agent of agents) {
       const tools = TOOLS_BY_AGENT[agent.name] ?? "Read";

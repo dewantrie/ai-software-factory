@@ -1,0 +1,145 @@
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadPrompts, loadProfile } from "../src/render.js";
+import { claudeCode } from "../src/platforms/claude-code.js";
+import { kiro } from "../src/platforms/kiro.js";
+import { codex } from "../src/platforms/codex.js";
+import { cursor } from "../src/platforms/cursor.js";
+import { windsurf } from "../src/platforms/windsurf.js";
+import { getAdapter, allPlatforms } from "../src/platforms/index.js";
+import type { Manifest } from "../src/manifest.js";
+
+const FACTORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const manifest: Manifest = {
+  name: "billing-api",
+  layer: "backend",
+  profile: "node-fastify",
+  contractsRepo: "../contracts",
+  commands: { typecheck: "pnpm typecheck", lint: "pnpm lint", test: "pnpm test", acceptance: "pnpm test:integration" },
+  paths: { backend: ["src/**"], forbidden: [".env*"] },
+  dontDo: ["Do not call /v1"],
+  platforms: ["claude-code", "kiro", "codex"],
+};
+
+const { agents, skills } = loadPrompts(FACTORY_ROOT);
+const profileBody = loadProfile(FACTORY_ROOT, "node-fastify");
+
+let target: string;
+beforeEach(() => {
+  target = mkdtempSync(join(tmpdir(), "factory-adapter-"));
+});
+afterEach(() => {
+  rmSync(target, { recursive: true, force: true });
+});
+
+function genArgs() {
+  return { targetRoot: target, manifest, agents, skills, profileBody };
+}
+
+describe("fixture sanity", () => {
+  test("there are agents and skills to render", () => {
+    expect(agents.length).toBeGreaterThan(0);
+    expect(skills.map((s) => s.name).sort()).toEqual(["feature-factory", "quick-fix", "spike"]);
+  });
+});
+
+describe("claude-code adapter", () => {
+  test("writes CLAUDE.md + one file per agent + one SKILL.md per skill", async () => {
+    const res = await claudeCode.generate(genArgs());
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length);
+
+    const claudeMd = readFileSync(join(target, "CLAUDE.md"), "utf8");
+    expect(claudeMd).toContain("# CLAUDE.md");
+    expect(claudeMd).toContain("billing-api");
+
+    // Every agent file exists with Claude-Code frontmatter and substituted context var
+    for (const a of agents) {
+      const body = readFileSync(join(target, ".claude", "agents", `${a.name}.md`), "utf8");
+      expect(body.startsWith("---")).toBe(true);
+      expect(body).toContain(`name: ${a.name}`);
+      expect(body).toContain("tools:");
+      expect(body).not.toContain("{{CONTEXT_FILE}}");
+    }
+
+    for (const s of skills) {
+      expect(existsSync(join(target, ".claude", "skills", s.name, "SKILL.md"))).toBe(true);
+    }
+  });
+
+  test("substitutes {{CONTEXT_FILE}} with CLAUDE.md in agent bodies", async () => {
+    await claudeCode.generate(genArgs());
+    const backend = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
+    expect(backend).toContain("CLAUDE.md");
+  });
+});
+
+describe("kiro adapter", () => {
+  test("writes project.md + agent-*/skill-* steering files + FACTORY.md", async () => {
+    const res = await kiro.generate(genArgs());
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1);
+
+    const project = readFileSync(join(target, ".kiro", "steering", "project.md"), "utf8");
+    expect(project).toContain("inclusion: always");
+
+    const agentFile = readFileSync(
+      join(target, ".kiro", "steering", `agent-${agents[0]!.name}.md`),
+      "utf8",
+    );
+    expect(agentFile).toContain("inclusion: manual");
+    expect(agentFile).toContain(".kiro/steering/project.md");
+    expect(agentFile).not.toContain("{{CONTEXT_FILE}}");
+  });
+});
+
+describe("codex adapter", () => {
+  test("writes AGENTS.md + agent files + 3 executable orchestrators + FACTORY.md", async () => {
+    const res = await codex.generate(genArgs());
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1);
+
+    expect(existsSync(join(target, "AGENTS.md"))).toBe(true);
+
+    const scripts = ["feature-factory.sh", "quick-fix.sh", "spike.sh"];
+    for (const name of scripts) {
+      const p = join(target, ".codex", "orchestrator", name);
+      expect(existsSync(p)).toBe(true);
+      // Executable bit set
+      expect(statSync(p).mode & 0o111).not.toBe(0);
+      // Valid bash (syntax check, doesn't execute)
+      expect(() => execFileSync("bash", ["-n", p])).not.toThrow();
+    }
+  });
+
+  test("agent bodies substitute {{CONTEXT_FILE}} with AGENTS.md", async () => {
+    await codex.generate(genArgs());
+    const body = readFileSync(join(target, ".codex", "agents", "backend-builder.md"), "utf8");
+    expect(body).toContain("AGENTS.md");
+    expect(body).not.toContain("{{CONTEXT_FILE}}");
+  });
+});
+
+describe("stub adapters", () => {
+  test("cursor throws a clear not-implemented error", async () => {
+    await expect(cursor.generate(genArgs())).rejects.toThrow(/stub/i);
+  });
+  test("windsurf throws a clear not-implemented error", async () => {
+    await expect(windsurf.generate(genArgs())).rejects.toThrow(/stub/i);
+  });
+});
+
+describe("registry", () => {
+  test("getAdapter returns the matching adapter for every known platform", () => {
+    for (const p of allPlatforms) {
+      expect(getAdapter(p).name).toBe(p);
+    }
+  });
+
+  test("getAdapter throws on an unknown platform", () => {
+    // @ts-expect-error — intentionally invalid platform
+    expect(() => getAdapter("nope")).toThrow(/Unknown platform/);
+  });
+});
