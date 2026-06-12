@@ -134,6 +134,40 @@ describe("buildContextFile", () => {
     expect(out).not.toContain("## Repo-specific don't-do");
   });
 
+  test("renders migration/devops/doc scoping blocks when present", () => {
+    const out = buildContextFile({
+      manifest: baseManifest({
+        paths: {
+          backend: ["src/**"],
+          migrations: ["prisma/**"],
+          infra: [".github/workflows/**"],
+          docs: ["docs/**"],
+        },
+      }),
+      profileBody: "",
+      contextFileName: "CLAUDE.md",
+      platform: "claude-code",
+    });
+    expect(out).toContain("**Migration Author may edit:**");
+    expect(out).toContain("- `prisma/**`");
+    expect(out).toContain("**DevOps Builder may edit:**");
+    expect(out).toContain("- `.github/workflows/**`");
+    expect(out).toContain("**Doc Writer may edit:**");
+    expect(out).toContain("- `docs/**`");
+  });
+
+  test("omits migration/devops/doc blocks when absent", () => {
+    const out = buildContextFile({
+      manifest: baseManifest({ paths: { backend: ["src/**"] } }),
+      profileBody: "",
+      contextFileName: "CLAUDE.md",
+      platform: "claude-code",
+    });
+    expect(out).not.toContain("Migration Author may edit");
+    expect(out).not.toContain("DevOps Builder may edit");
+    expect(out).not.toContain("Doc Writer may edit");
+  });
+
   test("appends free-form notes when provided", () => {
     const out = buildContextFile({
       manifest: baseManifest({ notes: "authoritative source for contracts" }),

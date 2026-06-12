@@ -92,9 +92,24 @@ export function buildContextFile(ctx: RenderContext): string {
     m.paths.frontend.forEach((p) => lines.push(`- \`${p}\``));
     lines.push("");
   }
+  if (m.paths.migrations && m.paths.migrations.length > 0) {
+    lines.push("**Migration Author may edit:**");
+    m.paths.migrations.forEach((p) => lines.push(`- \`${p}\``));
+    lines.push("");
+  }
+  if (m.paths.infra && m.paths.infra.length > 0) {
+    lines.push("**DevOps Builder may edit:**");
+    m.paths.infra.forEach((p) => lines.push(`- \`${p}\``));
+    lines.push("");
+  }
   if (m.paths.tests && m.paths.tests.length > 0) {
     lines.push("**Test Verifier may edit:**");
     m.paths.tests.forEach((p) => lines.push(`- \`${p}\``));
+    lines.push("");
+  }
+  if (m.paths.docs && m.paths.docs.length > 0) {
+    lines.push("**Doc Writer may edit:**");
+    m.paths.docs.forEach((p) => lines.push(`- \`${p}\``));
     lines.push("");
   }
   if (m.paths.forbidden && m.paths.forbidden.length > 0) {
