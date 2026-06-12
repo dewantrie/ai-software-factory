@@ -212,7 +212,7 @@ function composeManifest(args: ComposeArgs): Record<string, unknown> {
 
   // Only include path keys with non-empty values; profile defaults define the bones
   const paths: Record<string, string[]> = {};
-  for (const key of ["backend", "frontend", "shared", "tests", "forbidden"] as const) {
+  for (const key of ["backend", "frontend", "shared", "tests", "forbidden", "migrations", "infra", "docs"] as const) {
     const v = args.paths[key];
     if (v && v.length > 0) paths[key] = v;
   }

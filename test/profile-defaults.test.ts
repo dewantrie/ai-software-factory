@@ -15,6 +15,12 @@ paths:
   frontend: []
   tests:
     - tests/integration/**
+  migrations:
+    - prisma/**
+  infra:
+    - .github/workflows/**
+  docs:
+    - docs/**
 \`\`\`
 
 ## Default commands (override in manifest)
@@ -62,6 +68,13 @@ describe("parseProfileDefaults", () => {
     const body = "## Default commands\n\n```yaml\ncommands: [unterminated\n```\n";
     const d = parseProfileDefaults(body);
     expect(d.commands).toBeUndefined();
+  });
+
+  test("extracts the new migrations/infra/docs path keys", () => {
+    const d = parseProfileDefaults(PROFILE);
+    expect(d.paths?.migrations).toEqual(["prisma/**"]);
+    expect(d.paths?.infra).toEqual([".github/workflows/**"]);
+    expect(d.paths?.docs).toEqual(["docs/**"]);
   });
 
   test("ignores a code block that is not immediately tied to a known header", () => {

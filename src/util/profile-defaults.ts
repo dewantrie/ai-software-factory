@@ -13,6 +13,9 @@ export interface ProfileDefaults {
     shared?: string[];
     forbidden?: string[];
     tests?: string[];
+    migrations?: string[];
+    infra?: string[];
+    docs?: string[];
   };
 }
 
