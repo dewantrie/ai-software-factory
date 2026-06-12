@@ -51,8 +51,8 @@ describe("fixture sanity", () => {
 describe("claude-code adapter", () => {
   test("writes CLAUDE.md + one file per agent + one SKILL.md per skill", async () => {
     const res = await claudeCode.generate(genArgs());
-    // CLAUDE.md + agents + skills + guard script + settings.json (manifest has a forbidden list)
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 2);
+    // CLAUDE.md + agents + skills + scope config + guard script + settings.json (manifest has a forbidden list)
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 3);
 
     const claudeMd = readFileSync(join(target, "CLAUDE.md"), "utf8");
     expect(claudeMd).toContain("# CLAUDE.md");

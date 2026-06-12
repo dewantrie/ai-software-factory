@@ -1,6 +1,6 @@
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { Manifest } from "../manifest.js";
+import type { Manifest, Paths } from "../manifest.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
 
@@ -32,6 +32,18 @@ const DESCRIPTIONS_BY_AGENT: Record<string, string> = {
   "performance-reviewer": "Read-only performance audit. N+1 queries, unbounded loops, hot-path issues. Reports findings by severity with file:line.",
   validator: "Compares implementation against story + brief. Read-only. Reports gaps by severity. Security and performance concerns are delegated to dedicated reviewers.",
   "doc-writer": "Writes CHANGELOG entries, README updates, migration guides for breaking changes. Scoped to docs paths only.",
+};
+
+// Editing agent -> the manifest path-list key it is allowed to edit. Read-only
+// agents are absent (they have no edit tools). `shared` is read-only context and
+// is intentionally not an allow-list.
+const ALLOW_KEY_BY_AGENT: Record<string, keyof Paths> = {
+  "backend-builder": "backend",
+  "frontend-builder": "frontend",
+  "test-verifier": "tests",
+  "migration-author": "migrations",
+  "devops-builder": "infra",
+  "doc-writer": "docs",
 };
 
 export const claudeCode: PlatformAdapter = {
@@ -85,10 +97,9 @@ export const claudeCode: PlatformAdapter = {
       filesWritten.push(path);
     }
 
-    // 4. Path guard — a PreToolUse hook that enforces the manifest's `forbidden`
-    //    list at the tool level (frontmatter can't scope paths). Edits/writes to a
-    //    forbidden path are blocked for EVERY agent, not just trusted by prose.
-    writeForbiddenGuard(targetRoot, manifest, filesWritten);
+    // 4. Path guard — enforces forbidden (session-wide) and per-agent allow-lists
+    //    at the tool level. Frontmatter can't scope paths, so a PreToolUse hook does.
+    writeScopeGuard(targetRoot, manifest, filesWritten);
 
     return { filesWritten, filesSkipped: [] };
   },
@@ -119,33 +130,71 @@ function extractDescription(body: string): string | null {
   return null;
 }
 
-/* ------- Path guard (PreToolUse hook) ------- */
+/* ------- Path guard (PreToolUse hooks) ------- */
 
 const GUARD_REL_PATH = ".claude/hooks/factory-guard.mjs";
+const SCOPE_CONFIG_REL_PATH = ".claude/hooks/factory-scope.json";
 const SETTINGS_REL_PATH = ".claude/settings.json";
 const GUARD_MARKER = "factory-guard.mjs";
 
-/**
- * Generate (or remove) a PreToolUse hook that blocks edits to forbidden paths.
- * - With a non-empty `forbidden` list: writes the guard script and merges the
- *   hook into .claude/settings.json (preserving any other settings/hooks).
- * - With an empty list: strips a previously-generated guard hook, if present.
- */
-function writeForbiddenGuard(targetRoot: string, manifest: Manifest, filesWritten: string[]): void {
-  const forbidden = manifest.paths.forbidden ?? [];
-  const settingsPath = join(targetRoot, SETTINGS_REL_PATH);
+interface ScopeConfig {
+  forbidden: string[];
+  agents: Record<string, string[]>;
+}
 
-  if (forbidden.length === 0) {
+/** Agents whose allow-list is PRESENT in the manifest (empty list counts as present). */
+function agentAllowMap(manifest: Manifest): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const [agent, key] of Object.entries(ALLOW_KEY_BY_AGENT)) {
+    const list = manifest.paths[key];
+    if (list !== undefined) map[agent] = list;
+  }
+  return map;
+}
+
+function scopeConfig(manifest: Manifest): ScopeConfig {
+  return { forbidden: manifest.paths.forbidden ?? [], agents: agentAllowMap(manifest) };
+}
+
+/**
+ * Write (or remove) the scope guard. Emits the script + config when there is
+ * anything to enforce (forbidden non-empty OR any agent allow-list present).
+ * The session-level settings.json hook is added only when forbidden is non-empty;
+ * allow-lists are wired per-agent (Task 5), not at session level.
+ */
+function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: string[]): void {
+  const config = scopeConfig(manifest);
+  const hasForbidden = config.forbidden.length > 0;
+  const hasAgents = Object.keys(config.agents).length > 0;
+
+  const settingsPath = join(targetRoot, SETTINGS_REL_PATH);
+  const scriptPath = join(targetRoot, GUARD_REL_PATH);
+  const configPath = join(targetRoot, SCOPE_CONFIG_REL_PATH);
+
+  if (!hasForbidden && !hasAgents) {
+    if (removeIfExists(configPath)) filesWritten.push(configPath);
+    if (removeIfExists(scriptPath)) filesWritten.push(scriptPath);
     if (removeGuardFromSettings(settingsPath)) filesWritten.push(settingsPath);
     return;
   }
 
-  const scriptPath = join(targetRoot, GUARD_REL_PATH);
-  writeFile(scriptPath, guardScript(forbidden));
+  writeFile(configPath, JSON.stringify(config, null, 2) + "\n");
+  filesWritten.push(configPath);
+  writeFile(scriptPath, guardScript());
   filesWritten.push(scriptPath);
 
-  mergeGuardIntoSettings(settingsPath);
-  filesWritten.push(settingsPath);
+  if (hasForbidden) {
+    mergeGuardIntoSettings(settingsPath);
+    filesWritten.push(settingsPath);
+  } else if (removeGuardFromSettings(settingsPath)) {
+    filesWritten.push(settingsPath);
+  }
+}
+
+function removeIfExists(path: string): boolean {
+  if (!existsSync(path)) return false;
+  unlinkSync(path);
+  return true;
 }
 
 interface HookCommand {
@@ -166,8 +215,6 @@ function readSettings(settingsPath: string): Record<string, unknown> {
   try {
     return JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
   } catch {
-    // Unparseable user settings — don't clobber; start from empty and the merge
-    // will surface as a fresh file rather than throwing.
     return {};
   }
 }
@@ -196,7 +243,7 @@ function removeGuardFromSettings(settingsPath: string): boolean {
   if (!hooks || !Array.isArray(hooks.PreToolUse)) return false;
 
   const kept = hooks.PreToolUse.filter((e) => !isOurHook(e));
-  if (kept.length === hooks.PreToolUse.length) return false; // nothing of ours
+  if (kept.length === hooks.PreToolUse.length) return false;
 
   if (kept.length > 0) hooks.PreToolUse = kept;
   else delete hooks.PreToolUse;
@@ -206,15 +253,22 @@ function removeGuardFromSettings(settingsPath: string): boolean {
   return true;
 }
 
-function guardScript(forbidden: string[]): string {
-  const list = JSON.stringify(forbidden);
+function guardScript(): string {
   return `#!/usr/bin/env node
-// Generated by ai-factory. PreToolUse guard: blocks edits/writes to paths the
-// manifest marks forbidden (CLAUDE.md -> "All agents must NOT edit").
-// Do not hand-edit — edit .factory.yaml's \`forbidden:\` list and re-run \`factory install\`.
+// Generated by ai-factory. PreToolUse path guard.
+// Reads factory-scope.json (next to this file):
+//   { "forbidden": [globs], "agents": { "<agent>": [allow globs] } }
+// Usage: node factory-guard.mjs [agentName]
+//   - always blocks edits matching a forbidden glob (relative path or basename)
+//   - if agentName has an allow-list, blocks edits whose relative path matches none of it
+// Do not hand-edit — edit .factory.yaml and re-run \`factory install\`.
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-const FORBIDDEN = ${list};
+const here = dirname(fileURLToPath(import.meta.url));
+let config = { forbidden: [], agents: {} };
+try { config = JSON.parse(readFileSync(join(here, "factory-scope.json"), "utf8")); } catch {}
 
 function globToRegExp(glob) {
   let re = "";
@@ -224,7 +278,7 @@ function globToRegExp(glob) {
       if (glob[i + 1] === "*") {
         re += ".*";
         i++;
-        if (glob[i + 1] === "/") i++; // **/ matches zero or more leading dirs
+        if (glob[i + 1] === "/") i++;
       } else {
         re += "[^/]*";
       }
@@ -239,7 +293,10 @@ function globToRegExp(glob) {
   return new RegExp("^" + re + "$");
 }
 
-const matchers = FORBIDDEN.map(globToRegExp);
+const agentName = process.argv[2] || "";
+const forbidden = (config.forbidden || []).map((g) => ({ g, re: globToRegExp(g) }));
+const allowGlobs = agentName && config.agents && config.agents[agentName] ? config.agents[agentName] : null;
+const allow = allowGlobs ? allowGlobs.map((g) => ({ g, re: globToRegExp(g) })) : null;
 
 let raw = "";
 try { raw = readFileSync(0, "utf8"); } catch {}
@@ -256,15 +313,22 @@ if (rel.startsWith(cwd)) rel = rel.slice(cwd.length);
 rel = rel.replace(/^[/\\\\]+/, "");
 const base = rel.split(/[/\\\\]/).pop() || rel;
 
-for (let i = 0; i < matchers.length; i++) {
-  if (matchers[i].test(rel) || matchers[i].test(base)) {
-    console.error(
-      'Blocked by ai-factory path guard: "' + rel + '" matches forbidden pattern "' + FORBIDDEN[i] +
-      '" (CLAUDE.md -> "All agents must NOT edit"). If this edit is intentional, remove the pattern from .factory.yaml and re-run factory install.'
-    );
+for (const f of forbidden) {
+  if (f.re.test(rel) || f.re.test(base)) {
+    console.error('Blocked by ai-factory path guard: "' + rel + '" matches forbidden pattern "' + f.g + '" (CLAUDE.md -> "All agents must NOT edit"). Edit .factory.yaml and re-run factory install if this is intentional.');
     process.exit(2);
   }
 }
+
+if (allow !== null) {
+  const ok = allow.some((a) => a.re.test(rel));
+  if (!ok) {
+    const list = allow.map((a) => a.g).join(", ") || "(none)";
+    console.error('Blocked by ai-factory path guard: "' + rel + '" is outside ' + agentName + ' allowed paths [' + list + '] (CLAUDE.md -> "Path scoping for agents"). Edit .factory.yaml and re-run factory install if this is intentional.');
+    process.exit(2);
+  }
+}
+
 process.exit(0);
 `;
 }
