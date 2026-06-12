@@ -87,4 +87,18 @@ describe("loadManifest", () => {
       expect(loadManifest(writeManifest(yaml)).layer).toBe(layer);
     },
   );
+
+  test("loads the new migrations/infra/docs path keys", () => {
+    const m = loadManifest(
+      writeManifest(
+        VALID.replace(
+          "platforms:",
+          "  migrations:\n    - prisma/**\n  infra:\n    - .github/workflows/**\n  docs:\n    - docs/**\nplatforms:",
+        ),
+      ),
+    );
+    expect(m.paths.migrations).toEqual(["prisma/**"]);
+    expect(m.paths.infra).toEqual([".github/workflows/**"]);
+    expect(m.paths.docs).toEqual(["docs/**"]);
+  });
 });

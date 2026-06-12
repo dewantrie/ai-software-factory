@@ -18,6 +18,9 @@ export interface Paths {
   shared?: string[];
   forbidden?: string[];
   tests?: string[];
+  migrations?: string[];
+  infra?: string[];
+  docs?: string[];
 }
 
 export interface Manifest {
