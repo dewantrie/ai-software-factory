@@ -91,6 +91,33 @@ describe("claude-code adapter", () => {
     const backend = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
     expect(backend).toContain("CLAUDE.md");
   });
+
+  test("emits a per-agent PreToolUse hook only for agents with an allow-list", async () => {
+    await claudeCode.generate(genArgs()); // manifest has paths.backend, no docs
+    const backend = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
+    expect(backend).toContain("hooks:");
+    expect(backend).toContain("PreToolUse:");
+    expect(backend).toContain('factory-guard.mjs" backend-builder');
+
+    // doc-writer has no `docs` list in this manifest → no hook block
+    const doc = readFileSync(join(target, ".claude", "agents", "doc-writer.md"), "utf8");
+    expect(doc).not.toContain("hooks:");
+
+    // read-only agent never gets a hook
+    const researcher = readFileSync(join(target, ".claude", "agents", "researcher.md"), "utf8");
+    expect(researcher).not.toContain("hooks:");
+  });
+
+  test("generated agent frontmatter with a hook block is valid YAML", async () => {
+    const { parse } = await import("yaml");
+    await claudeCode.generate(genArgs());
+    const body = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
+    const fm = body.split("---")[1]; // text between the first pair of --- fences
+    const parsed = parse(fm) as any;
+    expect(parsed.name).toBe("backend-builder");
+    expect(parsed.hooks.PreToolUse[0].matcher).toContain("Edit");
+    expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain("backend-builder");
+  });
 });
 
 describe("kiro adapter", () => {

@@ -77,6 +77,7 @@ export const claudeCode: PlatformAdapter = {
         `name: ${agent.name}`,
         `description: ${description}`,
         `tools: ${tools}`,
+        ...agentHooksBlock(agent.name, manifest),
         "---",
         "",
         body.trim(),
@@ -150,6 +151,20 @@ function agentAllowMap(manifest: Manifest): Record<string, string[]> {
     if (list !== undefined) map[agent] = list;
   }
   return map;
+}
+
+/** Frontmatter `hooks:` lines for an editing agent whose allow-list is present; [] otherwise. */
+function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
+  const key = ALLOW_KEY_BY_AGENT[agentName];
+  if (!key || manifest.paths[key] === undefined) return [];
+  return [
+    "hooks:",
+    "  PreToolUse:",
+    '    - matcher: "Write|Edit|MultiEdit|NotebookEdit"',
+    "      hooks:",
+    "        - type: command",
+    `          command: 'node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}" ${agentName}'`,
+  ];
 }
 
 function scopeConfig(manifest: Manifest): ScopeConfig {
