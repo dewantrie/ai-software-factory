@@ -51,7 +51,8 @@ describe("fixture sanity", () => {
 describe("claude-code adapter", () => {
   test("writes CLAUDE.md + one file per agent + one SKILL.md per skill", async () => {
     const res = await claudeCode.generate(genArgs());
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length);
+    // CLAUDE.md + agents + skills + guard script + settings.json (manifest has a forbidden list)
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 2);
 
     const claudeMd = readFileSync(join(target, "CLAUDE.md"), "utf8");
     expect(claudeMd).toContain("# CLAUDE.md");
@@ -68,6 +69,20 @@ describe("claude-code adapter", () => {
 
     for (const s of skills) {
       expect(existsSync(join(target, ".claude", "skills", s.name, "SKILL.md"))).toBe(true);
+    }
+  });
+
+  test("skill descriptions use the real prose paragraph, not the '<name> orchestrator.' fallback", async () => {
+    await claudeCode.generate(genArgs());
+    const descLine = (skill: string): string => {
+      const body = readFileSync(join(target, ".claude", "skills", skill, "SKILL.md"), "utf8");
+      return body.split("\n").find((l) => l.startsWith("description:")) ?? "";
+    };
+    // The frontmatter description carries the real trigger text, not "<name> orchestrator."
+    expect(descLine("feature-factory")).toMatch(/^description: Full 12-agent chain.*Use when/);
+    expect(descLine("spike")).toMatch(/^description: Research-only chain\. Use when/);
+    for (const s of ["feature-factory", "quick-fix", "spike"]) {
+      expect(descLine(s)).not.toBe(`description: ${s} orchestrator.`);
     }
   });
 
