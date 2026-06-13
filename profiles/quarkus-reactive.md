@@ -4,7 +4,7 @@ Stack assumptions:
 - Java 21 (LTS) — Java 17 also supported; bump `maven.compiler.release` in `pom.xml` accordingly
 - Quarkus 3.x
 - Mutiny — Quarkus's reactive primitives (`Uni<T>`, `Multi<T>`)
-- RESTEasy Reactive for HTTP endpoints (`quarkus-rest`)
+- Quarkus REST (formerly "RESTEasy Reactive"; renamed in Quarkus 3.9) for HTTP endpoints (`quarkus-rest`)
 - Hibernate Reactive + Panache for persistence (`quarkus-hibernate-reactive-panache`)
 - PostgreSQL via the reactive Vert.x driver (`quarkus-reactive-pg-client`)
 - Flyway for migrations (`quarkus-flyway`)
@@ -17,7 +17,7 @@ Stack assumptions:
 
 - REST endpoints (`@Path` resources) MUST return `Uni<T>` or `Multi<T>`. Never return `T` directly for I/O-bound endpoints.
 - Database access goes through Hibernate Reactive (`Mutiny.SessionFactory`) or Panache reactive helpers. Do NOT mix blocking `EntityManager` / `Session` with the reactive stack.
-- Use `@WithTransaction` (from `io.quarkus.hibernate.reactive.panache.common.runtime`) to demarcate transactions. Do NOT use the Jakarta `@Transactional` annotation — it doesn't compose with the reactive session.
+- Demarcate transactions with the annotation your Quarkus version expects: on Quarkus 3.x reactive, use `@WithTransaction` (from `io.quarkus.hibernate.reactive.panache.common.runtime`). Note newer Quarkus adds reactive support for the standard Jakarta `@Transactional` and is deprecating the Panache reactive annotations — check your version's docs before picking. Whichever you choose, do not mix blocking and reactive transaction demarcation in the same flow.
 - Business logic lives in `@ApplicationScoped` services. Resources (`@Path` classes) stay thin: parse input → call service → return Uni/Multi.
 - Every database query touching tenant data MUST filter by `tenantId`. Either use a Panache filter (`@FilterDef` / `@Filter`) or a base repository that injects the predicate. Do NOT rely on session attributes that can be forgotten.
 - DTOs at the API boundary — never expose Hibernate entities directly to clients. Map in the service layer.
@@ -32,7 +32,7 @@ Stack assumptions:
 
 - Do not block a reactive type with `.await().indefinitely()`, `.subscribe().asCompletionStage().get()`, or any other blocking call in production paths. Allowed only in unit tests with explicit `awaitable` helpers.
 - Do not return blocking types (raw `T`, `List<T>`, `Optional<T>`) from REST methods that touch the DB. Wrap in `Uni`/`Multi`.
-- Do not use `@Transactional` (Jakarta blocking) — use `@WithTransaction`.
+- Do not mix blocking and reactive transaction demarcation in one flow (see the transaction rule above for the version-appropriate annotation).
 - Do not inject the blocking `EntityManager` or `Session` in reactive resources/services.
 - Do not log full request bodies for billing or auth endpoints.
 - Do not write raw SQL outside of explicit Hibernate/Panache helpers (`PanacheQuery.executeUpdate`, `nativeQuery`).
@@ -84,7 +84,7 @@ paths:
 ```yaml
 commands:
   typecheck: mvn compile -q -DskipTests
-  lint: mvn spotbugs:check -q
+  lint: mvn spotbugs:check -q   # requires the spotbugs-maven-plugin in pom.xml; otherwise swap for your project's linter (checkstyle/PMD) or drop
   test: mvn test -q
   acceptance: mvn verify -q
 ```

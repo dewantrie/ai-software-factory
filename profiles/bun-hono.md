@@ -57,6 +57,7 @@ paths:
   frontend: []               # backend-only
   migrations:                # Migration Author owns Drizzle schema + migrations
     - src/db/**
+    - drizzle/**             # drizzle-kit's generated migration SQL (default output dir)
   infra:                     # DevOps Builder owns CI/CD + container/IaC
     - Dockerfile
     - docker-compose*.yml

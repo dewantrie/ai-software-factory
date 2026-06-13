@@ -70,7 +70,7 @@ paths:
 
 ```yaml
 commands:
-  typecheck: go vet ./...
+  typecheck: go build ./...   # go vet is a linter, not the compile/type gate; build is the real check
   lint: golangci-lint run
   test: go test ./... -race
   acceptance: go test ./tests/integration/... -tags=integration

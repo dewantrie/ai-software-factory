@@ -37,7 +37,7 @@ Stack assumptions:
 - Do not create new top-level apps in `apps/` without explicit approval. The micro-frontend set is curated.
 - Do not add a new package in `packages/` without a clear consumer and approval.
 - Do not import across apps directly (e.g., from `apps/master-data` into `apps/user-management`). Communicate via the shared event bus or shared packages.
-- Do not break Module Federation shared dependency versions. `react`, `react-dom`, `react-router-dom` are shared at runtime — version drift causes runtime errors.
+- Do not break Module Federation shared dependency versions. `react`, `react-dom`, and `react-router` (React Router 7's canonical package — not the deprecated `react-router-dom` re-export) must be shared as **singletons** (`shared: { react: { singleton: true }, ... }`); version drift or a non-singleton config causes runtime errors (duplicate React, mismatched router context across remotes).
 - Do not commit `.env`, `*.key`, `*.pem`, or anything that would fail gitleaks.
 - Do not bypass lefthook pre-commit hooks (lint, format, typecheck, gitleaks, branch-naming).
 - Do not use `any` outside of test fixtures.

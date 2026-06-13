@@ -50,10 +50,13 @@ paths:
     - src/server/**
     - src/lib/server/**
   frontend:
-    - src/app/**          # excluding src/app/api/**
+    - src/app/**          # pages/layouts; NOTE: also matches src/app/api/** (allow-lists
+                          # can't express exclusions), so api routes are co-owned with backend —
+                          # the brief's per-builder file list is the real boundary
     - src/components/**
     - src/hooks/**
     - src/lib/client/**
+    - src/lib/*.ts        # top-level shared utils (e.g. shadcn's src/lib/utils.ts)
   migrations:            # Migration Author owns the Prisma schema + migrations
     - prisma/**
   infra:                 # DevOps Builder owns CI/CD + container/IaC
