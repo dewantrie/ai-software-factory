@@ -17,16 +17,25 @@ commands:
   acceptance: pnpm test:integration
 
 paths:
-  backend:
+  backend:                       # Backend Builder may edit
     - src/routes/**
     - src/services/**
     - src/repository/**
     - src/lib/**
+  migrations:                    # Migration Author owns the schema (not the backend builder)
     - prisma/**
-  tests:
+  infra:                         # DevOps Builder owns CI/CD + container/IaC
+    - Dockerfile
+    - docker-compose*.yml
+    - .github/workflows/**
+  tests:                         # Test Verifier may edit
     - tests/integration/**
     - tests/fixtures/**
-  forbidden:
+  docs:                          # Doc Writer may edit
+    - docs/**
+    - CHANGELOG.md
+    - README.md
+  forbidden:                     # no agent may edit
     - .env*
     - "**/secrets.*"
 

@@ -30,7 +30,7 @@ invoke, in what order, with what hand-offs. They map to three **tiers** of work:
 | Tier | Skill | When | Shape |
 |---|---|---|---|
 | 1 | `spike` | "How does X work?" research | researcher only, no code |
-| 2 | `quick-fix` | small single-layer change (<3 files) | researcher → one builder → validator |
+| 2 | `quick-fix` | small single-layer change (1–3 files) | researcher → one builder → validator |
 | 3 | `feature-factory` | substantive feature, multi-layer | the full chain below |
 
 ## The Tier 3 chain

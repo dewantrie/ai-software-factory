@@ -122,7 +122,7 @@ ai-factory/
 │   ├── cli.ts          ← CLI entrypoint
 │   ├── manifest.ts     ← .factory.yaml parsing + validation
 │   ├── render.ts       ← prompt/profile composition
-│   ├── commands/       ← install (init/sync still stubs)
+│   ├── commands/       ← install, init, sync, feature
 │   └── platforms/      ← adapters: one per AI platform
 └── examples/           ← sample .factory.yaml manifests
 ```
@@ -272,7 +272,7 @@ Useful when a central prompt or profile change needs to propagate across 5+ repo
 |------------------------------|-----------|
 | `CLAUDE.md` | `.factory.yaml` (your manifest — never overwritten) |
 | `.claude/agents/*.md`, `.claude/skills/*/SKILL.md` | `.gitignore` (your changes stay) |
-| `.claude/hooks/factory-guard.mjs` (if `forbidden:` is set) | `.claude/settings.json` — **merged, not overwritten**: only the factory's path-guard `PreToolUse` hook is added/refreshed; your other settings and hooks are kept |
+| `.claude/hooks/factory-guard.mjs` + `.claude/hooks/factory-scope.json` (if `forbidden:` or any path allow-list is set) | `.claude/settings.json` — **merged, not overwritten**: only the factory's path-guard `PreToolUse` hook is added/refreshed; your other settings and hooks are kept |
 | `.kiro/steering/*`, `.kiro/FACTORY.md` (if Kiro platform) | Anything else in the repo (`src/`, `tests/`, etc.) |
 | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh`, `.codex/FACTORY.md` (if Codex platform) | `.codex/runs/**` (run history — never touched) |
 
@@ -305,8 +305,8 @@ factory install                             # 3. regenerate
 - ✅ Manifest parsing + validation (`.factory.yaml`)
 - ✅ Render engine (template substitution + context-file composition)
 - ✅ Platform-neutral agent prompts (12 agents, 3 skills)
-- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java), React + rsbuild + Module Federation (micro-frontend), Python library
-- ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`, plus a `PreToolUse` path-guard hook (`.claude/hooks/factory-guard.mjs` + merged `.claude/settings.json`) that **enforces** the manifest's `forbidden:` list at the tool level — edits to those paths are blocked, not just discouraged by prose
+- ✅ Stack profiles: Next.js App Router, Node+Fastify, Go+Echo, Python+FastAPI, Bun+Hono, Quarkus Reactive (Java), React + Vite, React + rsbuild + Module Federation (micro-frontend), Python library
+- ✅ **Claude Code adapter** — generates `CLAUDE.md` + `.claude/agents/*` + `.claude/skills/*/SKILL.md`, plus a `PreToolUse` path-guard hook (`.claude/hooks/factory-guard.mjs` + `.claude/hooks/factory-scope.json` + merged `.claude/settings.json`) that **enforces** the manifest's `forbidden:` list and per-agent allow-lists at the tool level — out-of-scope edits are blocked, not just discouraged by prose
 - ✅ `factory install` command
 
 ### Phase B — multi-platform + multi-repo (shipped)
@@ -327,7 +327,7 @@ These are deferred until you actually need them. Each is straightforward to add 
 - ⏳ Cursor adapter (stub — target layout documented in `src/platforms/cursor.ts`)
 - ⏳ Windsurf adapter (stub — target layout documented in `src/platforms/windsurf.ts`)
 
-**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing six (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
+**More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing profiles (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
 
 - Rust + Axum / Actix
 - SvelteKit (fullstack)
