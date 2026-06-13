@@ -48,11 +48,20 @@ paths:
     - src/services/**
     - src/repository/**
     - src/lib/**
-    - prisma/**          # or drizzle/
   frontend: []           # backend-only
+  migrations:            # Migration Author owns schema + migrations
+    - prisma/**          # or drizzle/
+  infra:                 # DevOps Builder owns CI/CD + container/IaC
+    - Dockerfile
+    - docker-compose*.yml
+    - .github/workflows/**
   tests:
     - tests/integration/**
     - tests/fixtures/**
+  docs:                  # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/secrets.*"

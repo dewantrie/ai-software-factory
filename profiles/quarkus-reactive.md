@@ -57,11 +57,22 @@ Stack assumptions:
 paths:
   backend:
     - src/main/java/**
-    - src/main/resources/**           # includes application.properties + db/migration
+    - src/main/resources/application*.properties
+    - src/main/resources/application*.yml
   frontend: []                        # backend-only
+  migrations:                         # Migration Author owns Flyway/Liquibase migrations
+    - src/main/resources/db/**
+  infra:                              # DevOps Builder owns CI/CD + container/IaC
+    - src/main/docker/**
+    - Dockerfile
+    - .github/workflows/**
   tests:
     - src/test/java/**
     - src/integrationTest/java/**     # if using Gradle's integrationTest sourceSet
+  docs:                               # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/application-secrets.properties"

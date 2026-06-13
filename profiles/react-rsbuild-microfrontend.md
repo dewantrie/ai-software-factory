@@ -65,9 +65,16 @@ paths:
     - packages/types/**
     - packages/shared/**
     - packages/route-contracts/**
+  infra:                               # DevOps Builder owns CI/CD + container/IaC
+    - .github/workflows/**
+    - Dockerfile
   tests:
     - apps/**/src/**/*.test.{ts,tsx}
     - packages/**/src/**/*.test.{ts,tsx}
+  docs:                                # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - node_modules/**
     - .turbo/**

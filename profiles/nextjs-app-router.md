@@ -49,15 +49,23 @@ paths:
     - src/services/**
     - src/server/**
     - src/lib/server/**
-    - prisma/**
   frontend:
     - src/app/**          # excluding src/app/api/**
     - src/components/**
     - src/hooks/**
     - src/lib/client/**
+  migrations:            # Migration Author owns the Prisma schema + migrations
+    - prisma/**
+  infra:                 # DevOps Builder owns CI/CD + container/IaC
+    - .github/workflows/**
+    - Dockerfile
   tests:
     - tests/acceptance/**
     - tests/fixtures/**
+  docs:                  # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/secrets.*"

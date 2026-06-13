@@ -47,11 +47,20 @@ paths:
     - internal/repository/**
     - internal/db/**
     - cmd/**
-    - db/migrations/**
   frontend: []           # backend-only
+  migrations:            # Migration Author owns migration files
+    - db/migrations/**
+  infra:                 # DevOps Builder owns CI/CD + container/IaC
+    - Dockerfile
+    - .github/workflows/**
+    - deploy/**
   tests:
     - tests/integration/**
     - tests/fixtures/**
+  docs:                  # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/secrets.*"

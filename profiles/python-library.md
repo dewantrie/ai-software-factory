@@ -52,8 +52,14 @@ paths:
   backend:                       # library logic — treat as "backend" for path scoping
     - src/**
   frontend: []                   # libraries don't have UIs
+  infra:                         # DevOps Builder owns CI/CD (no container for a library)
+    - .github/workflows/**
   tests:
     - tests/**
+  docs:                          # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - .venv/**

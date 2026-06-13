@@ -48,11 +48,20 @@ paths:
     - app/models/**
     - app/schemas/**
     - app/db/**
-    - alembic/versions/**
   frontend: []           # backend-only
+  migrations:            # Migration Author owns Alembic migrations
+    - alembic/**
+  infra:                 # DevOps Builder owns CI/CD + container/IaC
+    - Dockerfile
+    - docker-compose*.yml
+    - .github/workflows/**
   tests:
     - tests/integration/**
     - tests/fixtures/**
+  docs:                  # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/secrets.*"

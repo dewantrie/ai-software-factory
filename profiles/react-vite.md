@@ -55,8 +55,15 @@ paths:
   frontend:
     - src/**
   shared: []
+  infra:                               # DevOps Builder owns CI/CD + container/IaC
+    - .github/workflows/**
+    - Dockerfile
   tests:
     - src/**/*.test.{ts,tsx}
+  docs:                                # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - node_modules/**
     - dist/**

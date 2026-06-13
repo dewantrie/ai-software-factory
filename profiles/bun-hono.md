@@ -54,11 +54,20 @@ paths:
     - src/services/**
     - src/repository/**
     - src/lib/**
-    - src/db/**              # Drizzle schema + migrations
   frontend: []               # backend-only
+  migrations:                # Migration Author owns Drizzle schema + migrations
+    - src/db/**
+  infra:                     # DevOps Builder owns CI/CD + container/IaC
+    - Dockerfile
+    - docker-compose*.yml
+    - .github/workflows/**
   tests:
     - tests/integration/**
     - tests/fixtures/**
+  docs:                      # Doc Writer owns docs + changelog
+    - docs/**
+    - CHANGELOG.md
+    - README.md
   forbidden:
     - .env*
     - "**/secrets.*"
