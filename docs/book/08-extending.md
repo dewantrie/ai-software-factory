@@ -98,24 +98,25 @@ consumer that must learn the key (steps 3–4 are forced by `tsc`; steps 2/5 are
 
 ## Recipe E — Extend the guard's glob engine
 
-**Touches:** the `guardScript()` template in `src/platforms/claude-code.ts`,
-`test/guard.test.ts`.
+**Touches:** `assets/factory-guard.mjs` (the real guard script),
+`test/factory-guard.test.ts` (direct unit tests), and optionally `test/guard.test.ts`
+(adapter-wired integration tests).
 
-The glob→regex logic is a template literal *string* inside `guardScript()` (it's written
-to `.claude/hooks/factory-guard.mjs`). Two cautions:
+The guard is a **real, committed `.mjs` file** at `assets/factory-guard.mjs`. The Claude
+Code adapter copies it verbatim into each repo's `.claude/hooks/` (`copyFileSync`,
+`GUARD_ASSET_PATH` in `claude-code.ts`) and writes `factory-scope.json` beside it. So:
 
-- **Escaping is load-bearing.** Backslashes are doubled (`"\\\\"` → `"\\"` in the emitted
-  file). Change escaping carelessly and you corrupt the generated script. Always verify by
-  generating into a temp dir and running the script, not by eyeballing.
-- **Test by execution.** `test/guard.test.ts` runs the real `.mjs` with sample payloads
-  and asserts exit codes. Add cases there (the brace-glob support, `{a,b}`, was added this
-  way after a review caught that `*.test.{ts,tsx}` matched nothing).
+- **Edit the script directly** — it's ordinary JavaScript, no template-string escaping.
+  The glob→regex logic (`globToRegExp`, supporting `**`, `*`, `?`, `{a,b}`) lives there.
+- **Test it directly.** `test/factory-guard.test.ts` copies the asset + a hand-written
+  `factory-scope.json` into a temp dir and runs real payloads through it — no adapter
+  needed. Add cases there (e.g. the brace-glob `{a,b}` support, added after a review caught
+  that `*.test.{ts,tsx}` matched nothing). `test/guard.test.ts` separately covers the
+  script as wired by the adapter.
 
-> **Architectural note / good first refactor:** the guard script currently lives as an
-> escaped template string. A cleaner design is to ship it as a static
-> `assets/factory-guard.mjs` file, unit-test it directly, and `copyFileSync` it at install
-> (writing the JSON config beside it). That removes the escaping fragility entirely. It's
-> listed as future work in Chapter [09](09-design-decisions.md).
+> The guard used to live as an escaped template literal inside `guardScript()` — the
+> doubled-backslash fragility caused two real bugs. It was refactored to this static-asset
+> form (see Chapter [09](09-design-decisions.md) D9).
 
 ---
 

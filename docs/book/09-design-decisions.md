@@ -87,14 +87,18 @@ primarily human/AI-readable prose. Avoids two competing sources for the same val
 existing repos until `init` re-runs or values are copied. A regex extracts the YAML, which
 is mildly fragile to heading changes.
 
-### D9 — Generated guard script as an embedded template string
+### D9 — Guard script as a static asset (resolved)
 
-**Decision (current):** `factory-guard.mjs` is produced from a template literal inside
-`claude-code.ts`.
-**Why:** Simplest to ship — no extra asset files, the generator is self-contained.
-**Trade-off:** Escaping is fragile (doubled backslashes), and the script can't be unit-
-tested directly — only by generating and executing it. **This is the weakest part of
-`src/`** and is the top candidate for a future refactor (see Future Work).
+**History:** `factory-guard.mjs` was originally produced from a template literal inside
+`claude-code.ts`. That was simplest to ship but the escaping was fragile (doubled
+backslashes) and the script couldn't be unit-tested except by generating-then-executing —
+it caused two real bugs (a brace-glob miss and a path-traversal hole).
+**Decision (current):** the script is a real committed file, `assets/factory-guard.mjs`,
+copied verbatim into each repo (`copyFileSync`, `GUARD_ASSET_PATH` resolved via
+`import.meta.url`). It's unit-tested directly in `test/factory-guard.test.ts`.
+**Trade-off:** one more file to ship; if the package is ever published to npm, `assets/`
+must be included (it isn't excluded today). Net: the escaping fragility is gone and the
+guard is testable in isolation.
 
 ---
 
@@ -111,8 +115,8 @@ tested directly — only by generating and executing it. **This is the weakest p
 
 ## Future work (roughly by leverage)
 
-1. **Move the guard script to a static asset + direct unit tests** (resolves D9's
-   fragility). Highest-leverage `src/` cleanup. Recipe E in Chapter [08](08-extending.md).
+1. ~~Move the guard script to a static asset + direct unit tests~~ — **done** (D9);
+   `assets/factory-guard.mjs` + `test/factory-guard.test.ts`.
 2. **Close platform parity** — bring enforced scoping and/or fix loops to Codex (it has
    shell; a pre-`codex exec` path check is feasible), or clearly tier the platforms by
    capability so expectations match reality.
