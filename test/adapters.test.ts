@@ -121,9 +121,11 @@ describe("claude-code adapter", () => {
 });
 
 describe("kiro adapter", () => {
-  test("writes project.md + agent-*/skill-* steering files + FACTORY.md", async () => {
+  test("writes steering files + CLI agents + scope guard + FACTORY.md", async () => {
     const res = await kiro.generate(genArgs());
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1);
+    // project.md + agent-steering*N + skill-steering*N + FACTORY.md
+    //   + CLI agents*N + factory-scope.json + factory-guard.mjs (genArgs declares scope)
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1 + agents.length + 2);
 
     const project = readFileSync(join(target, ".kiro", "steering", "project.md"), "utf8");
     expect(project).toContain("inclusion: always");
@@ -135,6 +137,45 @@ describe("kiro adapter", () => {
     expect(agentFile).toContain("inclusion: manual");
     expect(agentFile).toContain(".kiro/steering/project.md");
     expect(agentFile).not.toContain("{{CONTEXT_FILE}}");
+
+    expect(existsSync(join(target, ".kiro", "factory-scope.json"))).toBe(true);
+    expect(existsSync(join(target, ".kiro", "factory-guard.mjs"))).toBe(true);
+  });
+
+  test("CLI agent configs: editing agents get the fs_write hook, read-only ones don't", async () => {
+    await kiro.generate(genArgs());
+    const read = (name: string) => JSON.parse(readFileSync(join(target, ".kiro", "agents", `${name}.json`), "utf8"));
+
+    const be = read("backend-builder");
+    expect(be.tools).toContain("write");
+    expect(be.hooks.preToolUse[0].matcher).toBe("fs_write");
+    expect(be.hooks.preToolUse[0].command).toContain("factory-guard.mjs backend-builder");
+    expect(be.prompt).not.toContain("{{CONTEXT_FILE}}");
+
+    const researcher = read("researcher");
+    expect(researcher.tools).not.toContain("write");
+    expect(researcher.hooks).toBeUndefined();
+
+    // doc-writer has no `docs` list in genArgs → editing-capable but opt-in absent → no hook
+    const doc = read("doc-writer");
+    expect(doc.tools).toContain("write");
+    expect(doc.hooks).toBeUndefined();
+  });
+
+  test("omits scope guard + agent hooks when the manifest declares no scope", async () => {
+    const bare: Manifest = {
+      name: "bare",
+      layer: "backend",
+      profile: "node-fastify",
+      commands: { typecheck: "tc", lint: "ln", test: "ts" },
+      paths: {},
+      platforms: ["kiro"],
+    };
+    await kiro.generate({ targetRoot: target, manifest: bare, agents, skills, profileBody });
+    expect(existsSync(join(target, ".kiro", "factory-scope.json"))).toBe(false);
+    expect(existsSync(join(target, ".kiro", "factory-guard.mjs"))).toBe(false);
+    const be = JSON.parse(readFileSync(join(target, ".kiro", "agents", "backend-builder.json"), "utf8"));
+    expect(be.hooks).toBeUndefined(); // no scope declared → no hook
   });
 });
 
