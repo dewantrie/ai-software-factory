@@ -125,11 +125,18 @@ actually be able to express the globs people already write.
 
 Be precise about this so nobody over-trusts it:
 
-- **It guards `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only.** A builder also has
-  `Bash`. `bash -c 'echo > src/x'` bypasses the hook. The guard is a **guardrail**, not
-  a sandbox. (Guarding arbitrary Bash would mean parsing shell — out of scope.)
-- **It's Claude Code only.** Kiro and Codex have no hook mechanism, so on those
-  platforms scoping stays prompt-only. This is a platform limitation, not a choice.
+- **The Claude hook guards `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only.** A builder
+  also has `Bash`. `bash -c 'echo > src/x'` bypasses the *Claude* hook. There it's a
+  **guardrail**, not a sandbox. (Guarding arbitrary Bash via a PreToolUse hook would mean
+  parsing shell — out of scope.)
+- **Per-platform mechanism differs.** Claude Code blocks *before* the edit (PreToolUse
+  hook). **Codex** enforces the same allow-lists *after* each `codex exec`, via a git-diff
+  guard in the orchestrator (`factory-check.mjs`) that reverts + halts — and because it
+  diffs the tree, it *does* catch `Bash`-written files (slightly stronger on that axis).
+  **Kiro** has neither a hook nor a shell orchestrator seam, so it stays prompt-only.
+
+The shared `assets/factory-scope.json` config and glob engine back both the Claude guard
+and the Codex check, so the rules can't drift between platforms.
 
 Knowing the boundary is part of using it correctly. The guard stops the *common,
 accidental* out-of-scope edit (the model reaching for the wrong file), which is the

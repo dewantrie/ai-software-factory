@@ -68,10 +68,13 @@ them in is a contained task (Chapter [08](08-extending.md)).
 
 The same `.factory.yaml` produces materially different rigor per platform:
 
-- **Claude Code:** native subagents + enforced path scoping + (in the chain) automatic
-  fix loops.
-- **Kiro / Codex:** prompt-only scoping, no automatic fix loops, human drives more of the
-  sequence.
+- **Claude Code:** native subagents + enforced path scoping (pre-edit `PreToolUse` block)
+  + (in the chain) automatic fix loops.
+- **Codex:** enforced path scoping too, but via a different mechanism — the orchestrator
+  scripts run a post-run git-diff guard (`factory-check.mjs`) that reverts + halts on
+  out-of-scope edits (Chapter [04](04-path-enforcement.md)). No automatic fix loops; human
+  drives more of the sequence.
+- **Kiro:** prompt-only scoping (no hook/shell mechanism), no fix loops.
 
 This asymmetry is honest, not accidental: an adapter can only use the features its
 platform actually has. The factory's job is to emit the **best** files each platform can
