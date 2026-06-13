@@ -57,8 +57,7 @@ Stack assumptions:
 paths:
   backend:
     - src/main/java/**
-    - src/main/resources/application*.properties
-    - src/main/resources/application*.yml
+    - src/main/resources/**             # app config, META-INF, seed data (db/ also owned by migrations)
   frontend: []                        # backend-only
   migrations:                         # Migration Author owns Flyway/Liquibase migrations
     - src/main/resources/db/**

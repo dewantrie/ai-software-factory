@@ -49,8 +49,9 @@ paths:
     - app/schemas/**
     - app/db/**
   frontend: []           # backend-only
-  migrations:            # Migration Author owns Alembic migrations
+  migrations:            # Migration Author owns Alembic migrations + config
     - alembic/**
+    - alembic.ini
   infra:                 # DevOps Builder owns CI/CD + container/IaC
     - Dockerfile
     - docker-compose*.yml

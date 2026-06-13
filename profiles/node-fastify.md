@@ -50,7 +50,8 @@ paths:
     - src/lib/**
   frontend: []           # backend-only
   migrations:            # Migration Author owns schema + migrations
-    - prisma/**          # or drizzle/
+    - prisma/**
+    - drizzle/**
   infra:                 # DevOps Builder owns CI/CD + container/IaC
     - Dockerfile
     - docker-compose*.yml
