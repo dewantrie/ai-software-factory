@@ -159,6 +159,10 @@ After [installing](#install) and linking the CLI globally, invoke any of these w
 
 ## Usage
 
+**Learn the design:** [`docs/book/`](docs/book/README.md) — the architecture book.
+Explains the fundamentals and the *why* behind every major decision, so the system is
+easy to learn and to extend. Start there if you're new or planning a change.
+
 **Walkthroughs:**
 - [`docs/walkthrough.md`](docs/walkthrough.md) — one feature through the full Tier 3 chain in a single repo. What to type at each checkpoint, what the AI returns, common mistakes.
 - [`docs/cross-repo.md`](docs/cross-repo.md) — a feature spanning multiple repos via the contract bridge (backend repo → contracts → frontend repo).
