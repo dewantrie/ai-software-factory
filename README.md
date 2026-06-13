@@ -184,6 +184,13 @@ paths:                                     # path scoping for agents (all lists 
     - src/routes/**
     - src/services/**
   frontend: []                             # Frontend Builder may edit
+  migrations:                              # Migration Author may edit
+    - prisma/**
+  infra:                                   # DevOps Builder may edit
+    - .github/workflows/**
+  docs:                                    # Doc Writer may edit
+    - docs/**
+    - CHANGELOG.md
   shared:                                  # readable by either builder
     - packages/shared/**
   tests:                                   # Test Verifier may edit
@@ -383,6 +390,28 @@ export interface PlatformAdapter {
 ```
 
 `src/platforms/claude-code.ts` is the reference implementation. The stubs in `kiro.ts`, `cursor.ts`, `codex.ts`, `windsurf.ts` document the target layout for each platform — fill them in to enable.
+
+### Enforced path scoping (Claude Code)
+
+On Claude Code, path scoping is **enforced**, not just advised:
+
+- The `forbidden:` list is blocked session-wide by a `PreToolUse` hook
+  (`.claude/hooks/factory-guard.mjs` + a merged `.claude/settings.json`).
+- Each editing agent (`backend`, `frontend`, `tests`, `migrations`, `infra`,
+  `docs`) gets a per-agent `PreToolUse` hook in its frontmatter that blocks
+  edits outside its allow-list. Lists are **opt-in**: an agent with no list in
+  the manifest is unenforced (prompt-only); an empty list means "edit nothing".
+
+> **Opt-in / upgrading existing repos:** the guard is generated from the keys
+> present in *your* `.factory.yaml`, which is never overwritten by `install`. A
+> manifest written before these keys existed gains enforcement only for the keys
+> it already has. To enforce `migrations`/`infra`/`docs` in an existing repo, add
+> those keys to `.factory.yaml` (copy the profile's "Default paths" as a starting
+> point) and re-run `factory install`.
+
+Limitations: enforcement covers `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only —
+a builder's `Bash` access can still write files, so the guard is a guardrail, not
+a sandbox. Kiro and Codex have no hook mechanism, so they remain prompt-only.
 
 ## Cross-repo coordination
 
