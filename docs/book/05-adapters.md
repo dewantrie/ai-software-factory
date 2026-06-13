@@ -74,7 +74,9 @@ The same `.factory.yaml` produces materially different rigor per platform:
   scripts run a post-run git-diff guard (`factory-check.mjs`) that reverts + halts on
   out-of-scope edits (Chapter [04](04-path-enforcement.md)). No automatic fix loops; human
   drives more of the sequence.
-- **Kiro:** prompt-only scoping (no hook/shell mechanism), no fix loops.
+- **Kiro CLI:** enforced path scoping via a `preToolUse` hook in each generated
+  `.kiro/agents/*.json` (same guard as Claude). **Kiro IDE:** prompt-only (no generatable
+  hook contract). No fix loops either way.
 
 This asymmetry is honest, not accidental: an adapter can only use the features its
 platform actually has. The factory's job is to emit the **best** files each platform can

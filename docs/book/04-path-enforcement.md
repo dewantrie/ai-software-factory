@@ -130,10 +130,13 @@ Be precise about this so nobody over-trusts it:
   **guardrail**, not a sandbox. (Guarding arbitrary Bash via a PreToolUse hook would mean
   parsing shell — out of scope.)
 - **Per-platform mechanism differs.** Claude Code blocks *before* the edit (PreToolUse
-  hook). **Codex** enforces the same allow-lists *after* each `codex exec`, via a git-diff
-  guard in the orchestrator (`factory-check.mjs`) that reverts + halts — and because it
-  diffs the tree, it *does* catch `Bash`-written files (slightly stronger on that axis).
-  **Kiro** has neither a hook nor a shell orchestrator seam, so it stays prompt-only.
+  hook). **Kiro CLI** does the same — each agent's `.kiro/agents/*.json` carries a
+  `preToolUse` hook on the `fs_write` tool that runs the *same* `factory-guard.mjs` and
+  exits 2 to block (verified against `kiro-cli`). **Codex** enforces the same allow-lists
+  *after* each `codex exec`, via a git-diff guard in the orchestrator (`factory-check.mjs`)
+  that reverts + halts — and because it diffs the tree, it *does* catch `Bash`-written
+  files (slightly stronger on that axis). **Kiro IDE** stays prompt-only (its hook/block
+  contract isn't documented and `toolsSettings.allowedPaths` is reportedly unenforced).
 
 The shared `assets/factory-scope.json` config and glob engine back both the Claude guard
 and the Codex check, so the rules can't drift between platforms.
