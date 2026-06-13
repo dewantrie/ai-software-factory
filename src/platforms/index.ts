@@ -25,16 +25,12 @@ export interface PlatformAdapter {
 
 import { claudeCode } from "./claude-code.js";
 import { kiro } from "./kiro.js";
-import { cursor } from "./cursor.js";
 import { codex } from "./codex.js";
-import { windsurf } from "./windsurf.js";
 
 const registry: Record<Platform, PlatformAdapter> = {
   "claude-code": claudeCode,
   kiro,
-  cursor,
   codex,
-  windsurf,
 };
 
 export function getAdapter(platform: Platform): PlatformAdapter {

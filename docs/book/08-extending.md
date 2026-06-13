@@ -29,21 +29,26 @@ suggest it.
 
 ---
 
-## Recipe B — Implement a stub adapter (Cursor / Windsurf)
+## Recipe B — Add a new platform adapter (e.g. Cursor, Windsurf)
 
-**Touches:** `src/platforms/<name>.ts`, `test/adapters.test.ts`.
+**Touches:** `src/manifest.ts` (the `Platform` union + `validPlatforms`),
+`src/platforms/<name>.ts`, `src/platforms/index.ts` (registry), `test/adapters.test.ts`.
 
-1. Read the target layout documented in the stub's comments (`src/platforms/cursor.ts`).
-2. Replace the throwing `generate()` with a real one. Use `buildContextFile()` for the
-   context document and `render(body, { CONTEXT_FILE: "<the file>" })` for each prompt.
-   Follow `kiro.ts` as the closest "no native subagents" model.
-3. It's already in the `registry` in `src/platforms/index.ts`, so no wiring needed — just
-   make `generate` stop throwing.
+1. Add the platform name to the `Platform` union and the `validPlatforms` array in
+   `src/manifest.ts`.
+2. Create `src/platforms/<name>.ts` implementing `PlatformAdapter`. Use `buildContextFile()`
+   for the context document and `render(body, { CONTEXT_FILE: "<the file>" })` for each
+   prompt. Follow `kiro.ts` as the closest "no native subagents" model.
+3. Import + register it in the `registry` in `src/platforms/index.ts`.
 4. Add an adapter test mirroring the kiro/codex blocks in `test/adapters.test.ts`
-   (assert the file set, `{{CONTEXT_FILE}}` substitution, no leftover template vars).
+   (assert the file set, `{{CONTEXT_FILE}}` substitution, no leftover template vars). Update
+   the "exactly the … platforms" registry test.
 
-If the platform supports a `PreToolUse`-style hook, consider porting the path guard
-(Chapter [04](04-path-enforcement.md)); if not, document the prompt-only limitation in the
+If the platform has a real enforcement seam, wire path scoping: a pre-edit `PreToolUse`-style
+hook (reuse `assets/factory-guard.mjs`, like Claude Code / Kiro CLI) or a post-run check
+(like Codex's `factory-check.mjs`). **Verify it against the real tool before claiming it's
+enforced** — Cursor and Windsurf are rules-file tools with no such seam, which is why they
+aren't shipped: an adapter would be prompt-only. Document any prompt-only limitation in the
 adapter's `FACTORY.md`, like kiro/codex do.
 
 ---

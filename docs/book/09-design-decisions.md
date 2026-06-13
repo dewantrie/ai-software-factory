@@ -107,7 +107,7 @@ guard is testable in isolation.
 | Area | Limitation |
 |---|---|
 | Platform parity | Enforced path scoping exists on Claude Code (pre-edit hook), **Codex** (post-run git-diff guard), and **Kiro CLI** (pre-edit `preToolUse` hook). Kiro **IDE** stays prompt-only (no documented hook contract). Automatic fix loops are Claude-Code-only. |
-| Adapters | Cursor and Windsurf are stubs that throw. "5 platforms" = 3 real + 2 documented stubs. |
+| Adapters | Three implemented: Claude Code, Kiro, Codex. Cursor/Windsurf are not shipped (rules-file tools with no enforcement seam → an adapter would be prompt-only). |
 | Bash | The guard can't stop file writes done via `Bash` (D7). |
 | Contracts bridge | Manual (not chain-integrated), no contract-format validation, no `status.yaml` locking (Chapter [07](07-cross-repo.md)). |
 | Install backfill | `install` regenerates from the *manifest*, not the profile, so old manifests don't auto-gain new path keys (a consequence of D6/D8 — opt-in by design). |
@@ -121,7 +121,9 @@ guard is testable in isolation.
    and **Kiro CLI** (pre-edit `preToolUse` hook, verified against `kiro-cli`). Remaining:
    the **Kiro IDE** flow (no documented hook contract) stays prompt-only, and **automatic
    fix loops** are still Claude-Code-only.
-3. **Finish or remove the Cursor/Windsurf stubs** so the platform list stops over-claiming.
+3. ~~Finish or remove the Cursor/Windsurf stubs~~ — **done**: removed (they were
+   throwing stubs with no enforcement seam). Re-add via Recipe B if a prompt-only adapter
+   is wanted.
 4. **Chain ↔ contracts integration** — auto-pull on chain start, auto-ship on completion.
 5. **Contract-format validation** — verify the backend's emitted contract matches what the
    frontend expects.

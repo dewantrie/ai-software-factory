@@ -1,6 +1,6 @@
 # ai-factory
 
-Central factory for a 12-agent software factory pattern. Generates platform-specific files (Claude Code, Kiro, Cursor, Codex CLI, Windsurf) for many polyrepos from a single source of truth.
+Central factory for a 12-agent software factory pattern. Generates platform-specific files (Claude Code, Kiro, Codex CLI) for many polyrepos from a single source of truth.
 
 Designed for the case: **many repos, many techs, many AI platforms.**
 
@@ -210,8 +210,6 @@ platforms:                                 # required — which adapters to run
   - claude-code
   - kiro
   - codex
-  # - cursor    (stub)
-  # - windsurf  (stub)
 
 notes: |                                   # optional — free-form prose appended to CLAUDE.md
   This repo is the authoritative source for billing API contracts.
@@ -324,8 +322,7 @@ These are deferred until you actually need them. Each is straightforward to add 
 
 **Adapters**
 
-- ⏳ Cursor adapter (stub — target layout documented in `src/platforms/cursor.ts`)
-- ⏳ Windsurf adapter (stub — target layout documented in `src/platforms/windsurf.ts`)
+- ⏳ Cursor / Windsurf — not implemented. Both are rules-file (context-injection) tools with no generatable enforcement hook, so an adapter would be prompt-only (like the Kiro IDE flow). Add one by implementing `PlatformAdapter` in `src/platforms/` and registering it in `src/platforms/index.ts` — see Chapter 8 of the book.
 
 **More stack profiles** — add by writing a markdown file under `profiles/` matching the shape of the existing profiles (architecture rules, don't-do, default commands, default paths). Likely candidates when you hit them:
 
@@ -393,7 +390,7 @@ export interface PlatformAdapter {
 }
 ```
 
-`src/platforms/claude-code.ts` is the reference implementation. The stubs in `kiro.ts`, `cursor.ts`, `codex.ts`, `windsurf.ts` document the target layout for each platform — fill them in to enable.
+`src/platforms/claude-code.ts` is the reference implementation; `kiro.ts` and `codex.ts` are the other two. To add a platform, implement `PlatformAdapter` and register it in `src/platforms/index.ts`.
 
 ### Enforced path scoping (Claude Code)
 

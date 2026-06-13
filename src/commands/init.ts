@@ -21,8 +21,6 @@ const LAYER_CHOICES: { value: Layer; name: string }[] = [
   { value: "mobile", name: "mobile — mobile app (React Native, Flutter, etc.)" },
 ];
 
-// Stub adapters; surface them but mark disabled so users don't pick them by accident
-const STUB_PLATFORMS: ReadonlySet<Platform> = new Set(["cursor", "windsurf"]);
 
 export async function init(opts: InitOptions): Promise<void> {
   const targetRoot = resolve(opts.targetRoot);
@@ -95,15 +93,11 @@ export async function init(opts: InitOptions): Promise<void> {
   // 5. Platforms
   const platforms = (await checkbox({
     message: "AI platforms to generate files for (space to toggle):",
-    choices: allPlatforms.map((p) => {
-      const stub = STUB_PLATFORMS.has(p);
-      return {
-        value: p,
-        name: stub ? `${p} (stub — not wired yet)` : p,
-        checked: p === "claude-code",
-        disabled: stub ? "stub adapter — coming in a later phase" : false,
-      };
-    }),
+    choices: allPlatforms.map((p) => ({
+      value: p,
+      name: p,
+      checked: p === "claude-code",
+    })),
   })) as Platform[];
 
   if (platforms.length === 0) {
@@ -111,7 +105,7 @@ export async function init(opts: InitOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Validate every chosen adapter exists (defensive — checkbox already filters stubs)
+  // Validate every chosen adapter exists (defensive)
   for (const p of platforms) {
     try {
       getAdapter(p);

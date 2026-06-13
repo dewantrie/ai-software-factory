@@ -8,8 +8,6 @@ import { loadPrompts, loadProfile } from "../src/render.js";
 import { claudeCode } from "../src/platforms/claude-code.js";
 import { kiro } from "../src/platforms/kiro.js";
 import { codex } from "../src/platforms/codex.js";
-import { cursor } from "../src/platforms/cursor.js";
-import { windsurf } from "../src/platforms/windsurf.js";
 import { getAdapter, allPlatforms } from "../src/platforms/index.js";
 import type { Manifest } from "../src/manifest.js";
 
@@ -239,16 +237,11 @@ describe("codex adapter", () => {
   });
 });
 
-describe("stub adapters", () => {
-  test("cursor throws a clear not-implemented error", async () => {
-    await expect(cursor.generate(genArgs())).rejects.toThrow(/stub/i);
-  });
-  test("windsurf throws a clear not-implemented error", async () => {
-    await expect(windsurf.generate(genArgs())).rejects.toThrow(/stub/i);
-  });
-});
-
 describe("registry", () => {
+  test("exposes exactly the three implemented platforms", () => {
+    expect([...allPlatforms].sort()).toEqual(["claude-code", "codex", "kiro"]);
+  });
+
   test("getAdapter returns the matching adapter for every known platform", () => {
     for (const p of allPlatforms) {
       expect(getAdapter(p).name).toBe(p);

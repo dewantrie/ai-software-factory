@@ -47,7 +47,6 @@ platforms:
   - claude-code
   - kiro           # generates .kiro/steering/* + .kiro/FACTORY.md
   - codex          # generates AGENTS.md + .codex/agents/* + .codex/orchestrator/*.sh
-  # - cursor       # enable when cursor adapter ships
 
 notes: |
   This repo is the authoritative source for billing API contracts.

@@ -98,8 +98,8 @@ export interface PlatformAdapter {
 }
 ```
 
-`claude-code.ts` is the reference adapter; `kiro.ts` and `codex.ts` are real; `cursor.ts`
-and `windsurf.ts` are documented stubs. Chapter [05](05-adapters.md) covers them.
+`claude-code.ts` is the reference adapter; `kiro.ts` and `codex.ts` are the other two.
+Chapter [05](05-adapters.md) covers them and how to add another.
 
 ## The glue: render
 
@@ -121,7 +121,7 @@ Each primitive isolates one axis of change:
 | The *process* (how the validator works) | a prompt |
 | The *stack* conventions (how Fastify apps are structured) | a profile |
 | The *facts* of one repo (its commands, its paths) | that repo's manifest |
-| The *platform* output shape (what Cursor expects) | an adapter |
+| The *platform* output shape (what Kiro expects) | an adapter |
 
 A change never has to touch more than one axis. That separation is what makes the
 system teachable and safe to extend. Chapter [08](08-extending.md) is built entirely on it.

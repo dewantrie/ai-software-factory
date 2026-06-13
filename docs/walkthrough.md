@@ -461,4 +461,4 @@ After 5–10 features in the same codebase, the chain knows your conventions col
 - Watch where it stumbles. Add CLAUDE.md rules for each surprise.
 - Try the Tier 2 chain (quick-fix) on a single-layer bug next.
 - Try the Tier 1 chain (spike) on a "how does X work" question.
-- After 3–4 features, you'll know whether to add more stack profiles or wire up additional platforms (Cursor, Kiro, etc.).
+- After 3–4 features, you'll know whether to add more stack profiles or enable additional platforms (Kiro, Codex) for the repo.

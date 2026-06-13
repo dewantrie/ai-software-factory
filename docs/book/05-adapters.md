@@ -29,10 +29,12 @@ trees; that difference *is* the adapter.
 | Platform | State | Emits |
 |---|---|---|
 | `claude-code` | reference | `CLAUDE.md`, `.claude/agents/*`, `.claude/skills/*/SKILL.md`, path-guard hook |
-| `kiro` | real | `.kiro/steering/*` (always/manual inclusion), `.kiro/FACTORY.md` |
-| `codex` | real | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh`, `.codex/FACTORY.md` |
-| `cursor` | stub | throws; target layout documented in `src/platforms/cursor.ts` |
-| `windsurf` | stub | throws; target layout documented in `src/platforms/windsurf.ts` |
+| `kiro` | real | `.kiro/steering/*` (IDE), `.kiro/agents/*.json` (CLI, with enforced hooks), `.kiro/FACTORY.md` |
+| `codex` | real | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh` (with scope guard), `.codex/FACTORY.md` |
+
+Cursor and Windsurf are **not** implemented — both are rules-file (context-injection) tools
+with no generatable enforcement hook, so an adapter would be prompt-only. Adding one is a
+contained task (Chapter [08](08-extending.md)).
 
 ### claude-code — the reference
 
@@ -43,11 +45,12 @@ Chapter [04](04-path-enforcement.md)). Everything else is measured against it.
 
 ### kiro
 
-Kiro has no subagent system, so the chain runs **semi-manually**: each agent becomes a
-manual-inclusion steering file you invoke with `#agent-<name>` in chat, and the skill
-file is the script the human (or Kiro's agentic chat) follows. `project.md` is an
-always-included steering file holding the context. No tool scoping, no hooks — those
-features don't exist on the platform.
+Two surfaces. **IDE:** each agent becomes a manual-inclusion steering file you invoke with
+`#agent-<name>` in chat (`project.md` is the always-included context); scoping there is
+prompt-only. **CLI:** each agent also gets a `.kiro/agents/*.json` config for
+`kiro-cli chat --agent <name>`, and editing agents carry a `preToolUse` hook that runs the
+same guard as Claude — so the CLI flow has **enforced** path scoping (Chapter
+[04](04-path-enforcement.md)).
 
 ### codex
 
@@ -56,13 +59,8 @@ Codex auto-loads `AGENTS.md`. The chain is implemented as **bash orchestrators**
 under `.codex/runs/<timestamp>/`, and pause for human approval with `read -p`. Because
 each `codex exec` is a fresh process with no shared memory, the orchestrator concatenates
 prior outputs into each prompt explicitly — the same "information passing" idea as the
-Claude chain, done in shell.
-
-### cursor / windsurf — stubs
-
-These intentionally `throw` with a clear message and document their target layout in
-comments. They exist so the *shape* of the work is known when someone needs them; filling
-them in is a contained task (Chapter [08](08-extending.md)).
+Claude chain, done in shell. After each editing agent it runs a git-diff scope guard
+(Chapter [04](04-path-enforcement.md)).
 
 ## Why platforms are not equal — and why that's OK
 
@@ -83,9 +81,9 @@ platform actually has. The factory's job is to emit the **best** files each plat
 use, not to pretend they're equivalent. The `FACTORY.md` each adapter writes spells out
 that platform's limitations so users aren't misled.
 
-When you read marketing-style claims ("works on 5 platforms"), translate them through
-this chapter: two are stubs, and the three live ones differ in how much they enforce.
-Chapter [09](09-design-decisions.md) lists closing that gap as known future work.
+Three platforms are implemented (Claude Code, Kiro, Codex); they differ in how much they
+enforce (Chapter [04](04-path-enforcement.md)). Don't add a platform to the list until its
+adapter is real and verified — an honest count beats a big one.
 
 ## The rule that keeps this clean
 

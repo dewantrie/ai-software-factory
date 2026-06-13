@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 
 export type Layer = "backend" | "frontend" | "worker" | "mobile" | "fullstack";
-export type Platform = "claude-code" | "kiro" | "cursor" | "codex" | "windsurf";
+export type Platform = "claude-code" | "kiro" | "codex";
 
 export interface Commands {
   typecheck: string;
@@ -67,7 +67,7 @@ function validateManifest(m: Record<string, unknown>, path: string): void {
     }
   }
 
-  const validPlatforms: Platform[] = ["claude-code", "kiro", "cursor", "codex", "windsurf"];
+  const validPlatforms: Platform[] = ["claude-code", "kiro", "codex"];
   const platforms = m.platforms;
   if (!Array.isArray(platforms) || platforms.length === 0) {
     throw new Error(`Manifest ${path}: platforms must be a non-empty list.`);
