@@ -46,16 +46,24 @@ For each new or modified endpoint or RPC:
 ### Files that will change
 A COMPLETE list of file paths grouped by builder. This list is the builder's permission map — they may touch ONLY these files.
 
+**Migration Author will modify:**
+- `path/to/migration` (create | modify) — one-line reason
+- (omit this subsection if there are no data-model changes)
+
 **Backend Builder will modify:**
 - `path/to/file.ts` (create | modify) — one-line reason
 
 **Frontend Builder will modify:**
 - `path/to/file.tsx` (create | modify) — one-line reason
 
+**DevOps Builder will modify:**
+- `path/to/ci-or-iac` (create | modify) — one-line reason
+- (omit this subsection if there are no infra/CI changes)
+
 **Test Verifier will create:**
 - `path/to/test.spec.ts` — covers AC1–ACn
 
-If a file appears in a list, the corresponding builder is allowed to touch it. Files NOT listed are forbidden.
+If a file appears in a list, the corresponding builder is allowed to touch it. Files NOT listed are forbidden. The orchestrator reads each subsection as the "Files that will change → <Builder>" permission map, so use these exact builder headers.
 
 ### Patterns to reuse
 Reference existing helpers, components, or services to reuse with file:line citations. Pull these from the researcher's output. Each entry: "reuse `functionName` from `path/to/file.ts:line`".

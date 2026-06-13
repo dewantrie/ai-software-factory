@@ -40,15 +40,16 @@ For each item, produce a finding (with `file:line`) or confirm no issue.
 - No files changed outside the brief's "Files that will change" list.
 - No new dependencies the brief did not approve.
 - Code matches existing patterns flagged by the researcher.
-- Every rule under `{{CONTEXT_FILE}}` → "Architecture rules" and "Don't do" is checked against the diff. List each rule by name and confirm pass/fail.
+- Every rule under `{{CONTEXT_FILE}}` → "Profile rules" (which contains the stack's architecture rules and don't-do list) and "Repo-specific don't-do" is checked against the diff. List each rule by name and confirm pass/fail.
 
 ### 5. Tests
-- Every acceptance criterion has an acceptance test (the test-verifier's report should confirm — re-verify by reading the test file).
+- **If you were given a story with acceptance criteria** (Tier 3): every acceptance criterion has an acceptance test (the test-verifier's report should confirm — re-verify by reading the test file). **If you were told this is a Tier 2 quick-fix with no formal acceptance criteria, SKIP this bullet** — do not raise findings for absent acceptance tests; verify unit tests only.
 - Unit tests exist for every new function, handler, component, hook, store, or job.
 - No skip/focus markers (whatever the project's test runner uses — `.only`, `.skip`, `t.Skip`, `#[ignore]`, `pytest.mark.skip`, etc.) in merged code.
 - No commented-out tests.
 
 ### 6. Accessibility (for frontend changes)
+Skip this section entirely if no frontend/UI files were changed.
 - Interactive elements keyboard-reachable.
 - Images have alt text.
 - Form inputs have labels.

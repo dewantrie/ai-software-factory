@@ -29,7 +29,7 @@ Decide which builder based on the files:
 Invoke the chosen builder with: user's request, researcher's full output, the approved 3-bullet plan (treated as a mini-brief).
 
 ### Step 4 — Validator
-Invoke `validator` with: user's request (as story substitute), 3-bullet plan (as brief substitute), builder's summary.
+Invoke `validator` with: user's request (as story substitute), 3-bullet plan (as brief substitute), builder's summary. **Tell the validator this is a Tier 2 quick-fix with no formal acceptance criteria** — it must skip the acceptance-test checklist item and verify unit tests only (otherwise it will raise false Criticals for absent acceptance tests).
 
 ### Step 5 — Fix loop
 If Critical findings: route to the builder, re-validate. Max 3 iterations. Important findings go to the user, not auto-fix.
