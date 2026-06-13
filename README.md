@@ -465,7 +465,7 @@ factory feature ship invoice-reminders --commit $(git rev-parse HEAD)
 
 See [`docs/cross-repo.md`](docs/cross-repo.md) for the full worked example with two repos and the orchestrator skill flow.
 
-**Current scope:** CLI commands only. The chain doesn't yet auto-pull on start or auto-ship on completion — invoke manually. Integration with the orchestrator skills is a follow-up (see "Build-on-demand" under Status).
+**Current scope:** The chain *consumes* a pulled feature bundle — the orchestrator reads `story.md` and any published `api.*` contract from `.factory/features/<name>/`, and the spec-writer/frontend-builder build on that contract. What's still manual is the **pull/ship invocation itself**: you run `factory feature pull` / `ship` by hand around the chain; the orchestrator doesn't auto-pull on start or auto-ship on completion. Auto-pull/ship is a follow-up (see "Build-on-demand" under Status).
 
 ## License
 

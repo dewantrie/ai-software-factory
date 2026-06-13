@@ -64,9 +64,11 @@ A worked two-repo example (backend → contract → frontend) is in
 
 This is an MVP bridge. Known gaps (also in Chapter [09](09-design-decisions.md)):
 
-- **Manual, not chain-integrated.** You run `pull`/`ship` by hand around the chain; the
-  orchestrator skill doesn't auto-pull on start or auto-ship on completion. Wiring that
-  in is a clean future step.
+- **Pull/ship invocation is manual.** The chain itself *does* consume a pulled bundle —
+  the orchestrator reads `story.md` + any published `api.*` from `.factory/features/<name>/`,
+  and the spec-writer/frontend-builder build on that contract (wired into the prompts). But
+  you still run `factory feature pull` / `ship` by hand around the chain; the orchestrator
+  doesn't auto-pull on start or auto-ship on completion. Wiring that in is a clean future step.
 - **No contract-format validation.** Nothing checks that the backend's emitted contract
   (OpenAPI/proto/Zod) matches what the frontend's spec-writer expects. Today that's a
   human's job at the frontend's CHECKPOINT 2.

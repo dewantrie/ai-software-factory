@@ -281,7 +281,7 @@ factory feature list
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Frontend chain invents an endpoint instead of using the contract | The contract wasn't pulled, or wasn't named where the spec-writer expected | Confirm `.factory/features/<name>/api.yaml` exists. The spec-writer's prompt should reference it; if not, add the path to your profile or CLAUDE.md. |
+| Frontend chain invents an endpoint instead of using the contract | The contract wasn't pulled, so the spec-writer/frontend-builder had no file to read | Confirm `.factory/features/<name>/api.*` exists (run `factory feature pull <name>`). The spec-writer and frontend-builder prompts already look there; if the file is present they consume it as the contract of record. |
 | Two repos show the same story but diverge in implementation | Story was edited in one repo's local pull instead of in the contracts repo | Stories MUST be edited in the contracts repo. Local pulls are read-only. |
 | `factory feature pull` returns nothing | The contracts repo hasn't been committed and pushed since `feature start` | Commit + push the contracts repo after `start` and after each `ship`. |
 | Backend repo runs ship before the chain produced a contract | `--contract` flag points at a nonexistent file | Confirm the backend builder emitted the contract artifact at the expected path. Otherwise omit `--contract` and ship later. |

@@ -14,6 +14,17 @@ Before launching the chain, check if the request is appropriately sized for Tier
 
 Only proceed once the tier is confirmed.
 
+## Cross-repo inputs — check before Step 1
+
+This feature may have originated in another repo. Before researching, check for a pulled feature bundle (created by `factory feature pull <name>`):
+
+- Look for `.factory/features/<name>/` in this repo (ask the user for `<name>` if a feature was mentioned but you can't find the directory).
+- If `story.md` exists there, it is the **authoritative story** — use it as the Step 2 output (you still present it at CHECKPOINT 1 for confirmation; you do not need story-writer to re-draft it from scratch).
+- If an `api.*` file exists there (e.g. `api.openapi.yaml`, `api.proto`, `api.ts`), it is the **published API contract of record** from the upstream repo. Carry it forward to spec-writer and to the frontend-builder. In a frontend-only repo there is no in-session backend summary — **this file is the contract**, and the frontend-builder consumes it instead.
+- If `.factory/features/<name>/` does not exist, proceed normally (single-repo feature).
+
+Never fabricate a contract. If the brief or a builder needs a contract that should have been pulled but isn't present, stop and tell the user to run `factory feature pull <name>`.
+
 ## Chain sequence
 
 ### Step 1 — Research
@@ -28,7 +39,7 @@ Present the story to the user verbatim. Then say: "Story drafted above. Reply **
 Stop. Do not proceed until approved. If they request changes, re-invoke `story-writer` with the new input. Loop until approved.
 
 ### Step 4 — Spec
-Invoke `spec-writer` with the approved story and researcher output.
+Invoke `spec-writer` with the approved story and researcher output. If a published API contract was found in the cross-repo check above, pass it too — the spec must build on that contract, not invent a new one.
 
 ### Step 5 — CHECKPOINT 2: brief approval
 Present the brief to the user verbatim. Then say: "Brief drafted above. Reply **approved** to continue, or tell me what to change."
@@ -46,7 +57,9 @@ If the brief's "Files that will change → Backend Builder" list is non-empty, i
 If the brief has zero backend files: skip this step and note it.
 
 ### Step 8 — Frontend build
-If the brief's "Files that will change → Frontend Builder" list is non-empty, invoke `frontend-builder` with the approved brief, researcher output, and the backend builder's COMPLETE summary (including the API contract verbatim).
+If the brief's "Files that will change → Frontend Builder" list is non-empty, invoke `frontend-builder` with the approved brief, researcher output, and the API contract. The contract source depends on the feature:
+- **Same-repo feature:** pass the backend builder's COMPLETE summary (including its "API contract emitted" section, verbatim).
+- **Cross-repo feature** (backend shipped in another repo): there is no backend summary this run — pass the **published contract file** from `.factory/features/<name>/api.*` instead, and tell the frontend-builder it is the contract of record.
 
 If the brief has zero frontend files: skip this step and note it.
 
