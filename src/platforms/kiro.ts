@@ -34,7 +34,6 @@ export const kiro: PlatformAdapter = {
       profileBody,
       contextFileName: ".kiro/steering/project.md",
       title: `Project context — ${manifest.name}`,
-      platform: "kiro",
     });
     const projectFile = wrapSteering("always", contextBody);
     writeFile(join(targetRoot, ".kiro", "steering", "project.md"), projectFile);

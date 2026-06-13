@@ -58,6 +58,25 @@ function validateManifest(m: Record<string, unknown>, path: string): void {
   if (!validLayers.includes(m.layer as Layer)) {
     throw new Error(`Manifest ${path}: invalid layer "${m.layer}". Must be one of: ${validLayers.join(", ")}`);
   }
+
+  const commands = m.commands as Record<string, unknown> | null | undefined;
+  for (const cmd of ["typecheck", "lint", "test"] as const) {
+    const v = commands?.[cmd];
+    if (typeof v !== "string" || v.trim() === "") {
+      throw new Error(`Manifest ${path}: commands.${cmd} must be a non-empty string.`);
+    }
+  }
+
+  const validPlatforms: Platform[] = ["claude-code", "kiro", "cursor", "codex", "windsurf"];
+  const platforms = m.platforms;
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    throw new Error(`Manifest ${path}: platforms must be a non-empty list.`);
+  }
+  for (const p of platforms) {
+    if (!validPlatforms.includes(p as Platform)) {
+      throw new Error(`Manifest ${path}: invalid platform "${p}". Must be one of: ${validPlatforms.join(", ")}`);
+    }
+  }
 }
 
 function normalizeManifest(m: Record<string, unknown>): Manifest {

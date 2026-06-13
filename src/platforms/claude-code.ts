@@ -58,7 +58,6 @@ export const claudeCode: PlatformAdapter = {
       manifest,
       profileBody,
       contextFileName: "CLAUDE.md",
-      platform: "claude-code",
     });
     const contextPath = join(targetRoot, "CLAUDE.md");
     writeFile(contextPath, contextBody);
@@ -279,7 +278,7 @@ function guardScript(): string {
 // Do not hand-edit — edit .factory.yaml and re-run \`factory install\`.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, relative } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 let config = { forbidden: [], agents: {} };
@@ -326,16 +325,19 @@ let raw = "";
 try { raw = readFileSync(0, "utf8"); } catch {}
 let data = {};
 try { data = JSON.parse(raw || "{}"); } catch {}
+if (!data || typeof data !== "object") data = {};
 
 const ti = data.tool_input || {};
 const filePath = ti.file_path || ti.notebook_path || ti.path || "";
 if (!filePath) process.exit(0);
 
+// Normalize to a repo-relative POSIX path. resolve()+relative() collapse '..',
+// '.', and '//' so traversal can't smuggle an out-of-scope path past a glob,
+// and a sibling dir whose name merely shares cwd's prefix isn't mis-sliced.
 const cwd = data.cwd || process.cwd();
-let rel = filePath;
-if (rel.startsWith(cwd)) rel = rel.slice(cwd.length);
-rel = rel.replace(/^[/\\\\]+/, "");
-const base = rel.split(/[/\\\\]/).pop() || rel;
+let rel = relative(cwd, resolve(cwd, String(filePath)));
+rel = rel.split("\\\\").join("/");
+const base = rel.split("/").pop() || rel;
 
 for (const f of forbidden) {
   if (f.re.test(rel) || f.re.test(base)) {

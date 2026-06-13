@@ -195,6 +195,22 @@ describe("per-agent allow-list enforcement", () => {
   test("an agent with no list (opt-in absent) is not allow-list enforced", () => {
     expect(runGuardAs("frontend-builder", join(target, "anywhere/x.ts"))).toBe(0);
   });
+
+  test("'..' traversal cannot escape an allow-list", () => {
+    // src/../docs/x.md normalizes to docs/x.md → outside backend-builder's src/** → blocked
+    expect(runGuardAs("backend-builder", join(target, "src/../docs/x.md"))).toBe(2);
+    // escaping the repo entirely is likewise blocked for a scoped agent
+    expect(runGuardAs("backend-builder", join(target, "src/../../evil.ts"))).toBe(2);
+    // a normalized in-scope path is still allowed
+    expect(runGuardAs("backend-builder", join(target, "src/sub/../routes/a.ts"))).toBe(0);
+  });
+
+  test("a malformed (null) stdin payload does not crash the guard", () => {
+    const script = join(target, ".claude", "hooks", "factory-guard.mjs");
+    expect(() =>
+      execFileSync("node", [script, "backend-builder"], { input: "null", stdio: ["pipe", "pipe", "pipe"] }),
+    ).not.toThrow();
+  });
 });
 
 describe("brace-glob allow-lists (e.g. *.test.{ts,tsx})", () => {

@@ -19,8 +19,8 @@ import { buildContextFile, render } from "../render.js";
  *   - Checkpoints pause via `read -p` for human approval.
  *   - Inter-agent context is passed as concatenated text in each prompt.
  *
- * Phase A scope: no automated fix loops; if validator/test-verifier reports
- * failures, the user re-runs or fixes manually. Phase B can add loop logic.
+ * Current scope: no automated fix loops; if validator/test-verifier reports
+ * failures, the user re-runs or fixes manually. A future iteration can add loop logic.
  */
 export const codex: PlatformAdapter = {
   name: "codex",
@@ -37,7 +37,6 @@ export const codex: PlatformAdapter = {
       profileBody,
       contextFileName: "AGENTS.md",
       title: `AGENTS.md — ${manifest.name}`,
-      platform: "codex",
     });
     const agentsPath = join(targetRoot, "AGENTS.md");
     writeFile(agentsPath, contextBody);
@@ -475,9 +474,9 @@ researcher → ⏸ (pick backend or frontend) → builder → validator.
 
 researcher only. No code written.
 
-## Limitations vs. Claude Code (Phase A)
+## Limitations vs. Claude Code
 
-- **No automated fix loops.** If validator reports Critical findings or test-verifier reports failing ACs, re-run the chain after fixing, or fix manually. Phase B will add automatic fix loops.
+- **No automated fix loops.** If validator reports Critical findings or test-verifier reports failing ACs, re-run the chain after fixing, or fix manually.
 - **Path scoping is prompt-only.** Codex doesn't enforce edit paths at the tool level — agents read AGENTS.md and obey.
 - **No automatic test/typecheck.** The builders' prompts tell them to run validation commands; the orchestrator script doesn't verify they actually did.
 - **Each agent invocation is a fresh \`codex exec\` session.** Context isn't shared — the orchestrator concatenates prior outputs into each prompt explicitly.

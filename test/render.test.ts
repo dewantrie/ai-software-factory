@@ -1,6 +1,28 @@
 import { describe, test, expect } from "vitest";
-import { render, buildContextFile } from "../src/render.js";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { render, buildContextFile, loadProfile } from "../src/render.js";
 import type { Manifest } from "../src/manifest.js";
+
+describe("loadProfile", () => {
+  test("reads an existing profile body", () => {
+    const root = mkdtempSync(join(tmpdir(), "factory-prof-"));
+    mkdirSync(join(root, "profiles"), { recursive: true });
+    writeFileSync(join(root, "profiles", "demo.md"), "# Profile: demo\n");
+    expect(loadProfile(root, "demo")).toContain("# Profile: demo");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("throws a helpful error listing available profiles when one is missing", () => {
+    const root = mkdtempSync(join(tmpdir(), "factory-prof-"));
+    mkdirSync(join(root, "profiles"), { recursive: true });
+    writeFileSync(join(root, "profiles", "alpha.md"), "x");
+    writeFileSync(join(root, "profiles", "beta.md"), "x");
+    expect(() => loadProfile(root, "ghost")).toThrow(/Profile "ghost" not found\. Available: alpha, beta/);
+    rmSync(root, { recursive: true, force: true });
+  });
+});
 
 describe("render", () => {
   test("substitutes a known variable", () => {

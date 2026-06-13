@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, join, basename, extname } from "node:path";
 import type { Manifest } from "./manifest.js";
 
@@ -13,7 +13,6 @@ export interface RenderContext {
   contextFileName: string;
   /** Optional heading override. If omitted, contextFileName is used. */
   title?: string;
-  platform: string;
 }
 
 export function loadPrompts(factoryRoot: string): { agents: PromptFile[]; skills: PromptFile[] } {
@@ -24,7 +23,15 @@ export function loadPrompts(factoryRoot: string): { agents: PromptFile[]; skills
 }
 
 export function loadProfile(factoryRoot: string, profileName: string): string {
-  const path = resolve(factoryRoot, "profiles", `${profileName}.md`);
+  const dir = resolve(factoryRoot, "profiles");
+  const path = join(dir, `${profileName}.md`);
+  if (!existsSync(path)) {
+    const available = readdirSync(dir)
+      .filter((f) => extname(f) === ".md")
+      .map((f) => basename(f, ".md"))
+      .sort();
+    throw new Error(`Profile "${profileName}" not found. Available: ${available.join(", ")}`);
+  }
   return readFileSync(path, "utf8");
 }
 

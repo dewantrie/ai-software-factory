@@ -80,6 +80,26 @@ describe("loadManifest", () => {
     expect(() => loadManifest(writeManifest(yaml))).toThrow(/invalid layer "serverless"/);
   });
 
+  test("throws when a required command is missing (no silent undefined)", () => {
+    const yaml = VALID.replace("  test: pnpm test\n", "");
+    expect(() => loadManifest(writeManifest(yaml))).toThrow(/commands\.test must be a non-empty string/);
+  });
+
+  test("throws when a command is blank", () => {
+    const yaml = VALID.replace("  lint: pnpm lint", '  lint: ""');
+    expect(() => loadManifest(writeManifest(yaml))).toThrow(/commands\.lint must be a non-empty string/);
+  });
+
+  test("throws on an invalid platform", () => {
+    const yaml = VALID.replace("  - claude-code", "  - vscode");
+    expect(() => loadManifest(writeManifest(yaml))).toThrow(/invalid platform "vscode"/);
+  });
+
+  test("throws on an empty platforms list", () => {
+    const yaml = VALID.replace("platforms:\n  - claude-code\n", "platforms: []\n");
+    expect(() => loadManifest(writeManifest(yaml))).toThrow(/platforms must be a non-empty list/);
+  });
+
   test.each(["backend", "frontend", "worker", "mobile", "fullstack"])(
     "accepts the valid layer %s",
     (layer) => {
