@@ -287,6 +287,7 @@ try { config = JSON.parse(readFileSync(join(here, "factory-scope.json"), "utf8")
 
 function globToRegExp(glob) {
   let re = "";
+  let inBrace = false;
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i];
     if (c === "*") {
@@ -299,7 +300,15 @@ function globToRegExp(glob) {
       }
     } else if (c === "?") {
       re += "[^/]";
-    } else if (".+^\${}()|[]\\\\".includes(c)) {
+    } else if (c === "{") {
+      re += "(";
+      inBrace = true;
+    } else if (c === "}") {
+      re += ")";
+      inBrace = false;
+    } else if (c === "," && inBrace) {
+      re += "|";
+    } else if (".+^\$()|[]\\\\".includes(c)) {
       re += "\\\\" + c;
     } else {
       re += c;

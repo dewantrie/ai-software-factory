@@ -196,3 +196,30 @@ describe("per-agent allow-list enforcement", () => {
     expect(runGuardAs("frontend-builder", join(target, "anywhere/x.ts"))).toBe(0);
   });
 });
+
+describe("brace-glob allow-lists (e.g. *.test.{ts,tsx})", () => {
+  beforeEach(async () => {
+    await generate({ tests: ["src/**/*.test.{ts,tsx}"], forbidden: [".env*"] });
+  });
+
+  function runGuardAs(agent: string, filePath: string): number {
+    const script = join(target, ".claude", "hooks", "factory-guard.mjs");
+    const input = JSON.stringify({ cwd: target, tool_input: { file_path: filePath } });
+    try {
+      execFileSync("node", [script, agent], { input, stdio: ["pipe", "pipe", "pipe"] });
+      return 0;
+    } catch (err: any) {
+      return err.status ?? 1;
+    }
+  }
+
+  test("test-verifier may edit both brace alternatives", () => {
+    expect(runGuardAs("test-verifier", join(target, "src/a.test.ts"))).toBe(0);
+    expect(runGuardAs("test-verifier", join(target, "src/components/b.test.tsx"))).toBe(0);
+  });
+
+  test("test-verifier is still blocked outside the brace pattern", () => {
+    expect(runGuardAs("test-verifier", join(target, "src/a.ts"))).toBe(2);
+    expect(runGuardAs("test-verifier", join(target, "src/a.test.js"))).toBe(2);
+  });
+});
