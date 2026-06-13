@@ -1,9 +1,10 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Manifest, Paths } from "../manifest.js";
+import type { Manifest } from "../manifest.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
+import { ALLOW_KEY_BY_AGENT, agentAllowMap, scopeConfig } from "../util/scope.js";
 
 // Source-of-truth guard script. It's a real, directly-testable .mjs file (see
 // test/factory-guard.test.ts) copied verbatim into each repo's .claude/hooks/ —
@@ -39,18 +40,6 @@ const DESCRIPTIONS_BY_AGENT: Record<string, string> = {
   "performance-reviewer": "Read-only performance audit. N+1 queries, unbounded loops, hot-path issues. Reports findings by severity with file:line.",
   validator: "Compares implementation against story + brief. Read-only. Reports gaps by severity. Security and performance concerns are delegated to dedicated reviewers.",
   "doc-writer": "Writes CHANGELOG entries, README updates, migration guides for breaking changes. Scoped to docs paths only.",
-};
-
-// Editing agent -> the manifest path-list key it is allowed to edit. Read-only
-// agents are absent (they have no edit tools). `shared` is read-only context and
-// is intentionally not an allow-list.
-const ALLOW_KEY_BY_AGENT: Record<string, keyof Paths> = {
-  "backend-builder": "backend",
-  "frontend-builder": "frontend",
-  "test-verifier": "tests",
-  "migration-author": "migrations",
-  "devops-builder": "infra",
-  "doc-writer": "docs",
 };
 
 export const claudeCode: PlatformAdapter = {
@@ -144,21 +133,6 @@ const SCOPE_CONFIG_REL_PATH = ".claude/hooks/factory-scope.json";
 const SETTINGS_REL_PATH = ".claude/settings.json";
 const GUARD_MARKER = "factory-guard.mjs";
 
-interface ScopeConfig {
-  forbidden: string[];
-  agents: Record<string, string[]>;
-}
-
-/** Agents whose allow-list is PRESENT in the manifest (empty list counts as present). */
-function agentAllowMap(manifest: Manifest): Record<string, string[]> {
-  const map: Record<string, string[]> = {};
-  for (const [agent, key] of Object.entries(ALLOW_KEY_BY_AGENT)) {
-    const list = manifest.paths[key];
-    if (list !== undefined) map[agent] = list;
-  }
-  return map;
-}
-
 /** Frontmatter `hooks:` lines for an editing agent whose allow-list is present; [] otherwise. */
 function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
   const key = ALLOW_KEY_BY_AGENT[agentName];
@@ -171,10 +145,6 @@ function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
     "        - type: command",
     `          command: 'node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}" ${agentName}'`,
   ];
-}
-
-function scopeConfig(manifest: Manifest): ScopeConfig {
-  return { forbidden: manifest.paths.forbidden ?? [], agents: agentAllowMap(manifest) };
 }
 
 /**

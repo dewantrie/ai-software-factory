@@ -139,11 +139,15 @@ describe("kiro adapter", () => {
 });
 
 describe("codex adapter", () => {
-  test("writes AGENTS.md + agent files + 3 executable orchestrators + FACTORY.md", async () => {
+  test("writes AGENTS.md + agent files + 3 executable orchestrators + FACTORY.md + scope guard", async () => {
     const res = await codex.generate(genArgs());
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1);
+    // AGENTS.md + agents + orchestrators + FACTORY.md + factory-scope.json + factory-check.mjs
+    // (the genArgs manifest has backend + forbidden → scope is enforced)
+    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1 + 2);
 
     expect(existsSync(join(target, "AGENTS.md"))).toBe(true);
+    expect(existsSync(join(target, ".codex", "factory-scope.json"))).toBe(true);
+    expect(existsSync(join(target, ".codex", "factory-check.mjs"))).toBe(true);
 
     const scripts = ["feature-factory.sh", "quick-fix.sh", "spike.sh"];
     for (const name of scripts) {
@@ -154,6 +158,36 @@ describe("codex adapter", () => {
       // Valid bash (syntax check, doesn't execute)
       expect(() => execFileSync("bash", ["-n", p])).not.toThrow();
     }
+  });
+
+  test("orchestrators enforce scope around editing agents (not read-only ones)", async () => {
+    await codex.generate(genArgs());
+    const ff = readFileSync(join(target, ".codex", "orchestrator", "feature-factory.sh"), "utf8");
+    expect(ff).toContain("enforce_scope()");
+    expect(ff).toContain("enforce_scope backend-builder");
+    expect(ff).toContain("enforce_scope doc-writer");
+    // researcher is read-only — no enforce call for it
+    expect(ff).not.toContain("enforce_scope researcher");
+
+    const qf = readFileSync(join(target, ".codex", "orchestrator", "quick-fix.sh"), "utf8");
+    expect(qf).toContain('enforce_scope "$AGENT"');
+  });
+
+  test("omits the scope guard when the manifest declares no scope", async () => {
+    const bare: Manifest = {
+      name: "bare",
+      layer: "backend",
+      profile: "node-fastify",
+      commands: { typecheck: "tc", lint: "ln", test: "ts" },
+      paths: {},
+      platforms: ["codex"],
+    };
+    await codex.generate({ targetRoot: target, manifest: bare, agents, skills, profileBody });
+    expect(existsSync(join(target, ".codex", "factory-scope.json"))).toBe(false);
+    expect(existsSync(join(target, ".codex", "factory-check.mjs"))).toBe(false);
+    // enforce_scope() helper is still defined (a no-op without the scope files)
+    const ff = readFileSync(join(target, ".codex", "orchestrator", "feature-factory.sh"), "utf8");
+    expect(ff).toContain("scope_active()");
   });
 
   test("agent bodies substitute {{CONTEXT_FILE}} with AGENTS.md", async () => {

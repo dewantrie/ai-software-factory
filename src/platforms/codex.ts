@@ -1,8 +1,15 @@
-import { mkdirSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdirSync, writeFileSync, chmodSync, copyFileSync, existsSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Manifest } from "../manifest.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
+import { scopeConfig, hasScopeToEnforce } from "../util/scope.js";
+
+// Codex post-run scope checker — copied verbatim into .codex/ and invoked by the
+// orchestrator after each editing agent. Resolved relative to this module so it
+// works under tsx-on-src and a dist build alike.
+const CHECK_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-check.mjs", import.meta.url));
 
 /**
  * OpenAI Codex CLI adapter.
@@ -69,7 +76,23 @@ export const codex: PlatformAdapter = {
       filesWritten.push(p);
     }
 
-    // 4. FACTORY.md
+    // 4. Path-scope enforcement data + checker (the orchestrator's enforce_scope
+    //    step is a no-op unless both of these exist; see scopeHelpers()).
+    const config = scopeConfig(manifest);
+    const scopeJsonPath = join(targetRoot, ".codex", "factory-scope.json");
+    const checkPath = join(targetRoot, ".codex", "factory-check.mjs");
+    if (hasScopeToEnforce(config)) {
+      writeFile(scopeJsonPath, JSON.stringify(config, null, 2) + "\n");
+      filesWritten.push(scopeJsonPath);
+      mkdirSync(dirname(checkPath), { recursive: true });
+      copyFileSync(CHECK_ASSET_PATH, checkPath);
+      filesWritten.push(checkPath);
+    } else {
+      if (removeIfExists(scopeJsonPath)) filesWritten.push(scopeJsonPath);
+      if (removeIfExists(checkPath)) filesWritten.push(checkPath);
+    }
+
+    // 5. FACTORY.md
     const factoryPath = join(targetRoot, ".codex", "FACTORY.md");
     writeFile(factoryPath, buildFactoryDoc(manifest, agents.length));
     filesWritten.push(factoryPath);
@@ -86,6 +109,69 @@ function writeFile(path: string, content: string): void {
 function writeExecutable(path: string, content: string): void {
   writeFile(path, content);
   chmodSync(path, 0o755);
+}
+
+function removeIfExists(path: string): boolean {
+  if (!existsSync(path)) return false;
+  unlinkSync(path);
+  return true;
+}
+
+/**
+ * Bash helpers injected into every orchestrator: a per-agent path-scope guard,
+ * the version-independent analog of Claude Code's PreToolUse hook. After an
+ * editing agent runs, it diffs that agent's changes and reverts + halts on any
+ * file outside the agent's allow-list or matching the forbidden list. It is a
+ * NO-OP unless `.codex/factory-check.mjs` + `.codex/factory-scope.json` exist
+ * (i.e. the manifest declared scope) AND node + a git repo are available.
+ * Written with real `$` (interpolated verbatim into the `\$`-escaped scripts).
+ */
+function scopeHelpers(): string {
+  return `
+# --- path-scope enforcement (no-op unless scope files + node + git are present) ---
+scope_active() {
+  [ -f "$CODEX_DIR/factory-check.mjs" ] && [ -f "$CODEX_DIR/factory-scope.json" ] \\
+    && command -v node >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1
+}
+
+# All currently-changed paths: modified-tracked + new-untracked (gitignore respected).
+_changed_now() {
+  { git diff --name-only 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u
+}
+
+snapshot() {
+  # Records the changed-set BEFORE an agent runs, in a temp file; echoes its path.
+  scope_active || { echo ""; return 0; }
+  local f
+  f=$(mktemp)
+  _changed_now > "$f"
+  echo "$f"
+}
+
+enforce_scope() {
+  # $1 = agent name, $2 = path returned by snapshot()
+  scope_active || return 0
+  local agent="$1" before="$2"
+  [ -z "$before" ] && return 0
+  # Files this agent created or modified = (changed now) minus (changed before).
+  local delta
+  delta=$(comm -13 "$before" <(_changed_now) 2>/dev/null || true)
+  rm -f "$before"
+  [ -z "$delta" ] && return 0
+  local violations
+  if violations=$(printf '%s\\n' "$delta" | node "$CODEX_DIR/factory-check.mjs" "$agent"); then
+    return 0
+  fi
+  echo "" >&2
+  echo "Scope violation: $agent edited files outside its allowed paths. Reverting and halting." >&2
+  printf '%s\\n' "$violations" | while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    git checkout HEAD -- "$f" 2>/dev/null || rm -f "$f"
+  done
+  echo "Reverted out-of-scope files. Tighten the brief or the manifest paths, then re-run." >&2
+  exit 1
+}
+`;
 }
 
 /* ------- Bash orchestrator scripts ------- */
@@ -138,7 +224,7 @@ pause_for_approval() {
     exit 1
   fi
 }
-
+${scopeHelpers()}
 # ----- STEP 1: Researcher -----
 section "STEP 1 — Researcher"
 RESEARCH=\$(invoke researcher "User request: \$REQUEST")
@@ -168,15 +254,18 @@ pause_for_approval "CHECKPOINT 2: Approve brief?"
 # ----- STEP 4: Migration Author -----
 # Returns "Not applicable" if the brief has no schema changes.
 section "STEP 4 — Migration Author"
+SNAP=\$(snapshot)
 MIGRATION=\$(invoke migration-author "Approved brief:
 \$BRIEF
 
 Researcher output:
 \$RESEARCH")
 echo "\$MIGRATION" | tee "\$RUN_DIR/04-migration.md"
+enforce_scope migration-author "\$SNAP"
 
 # ----- STEP 5: Backend Builder -----
 section "STEP 5 — Backend Builder"
+SNAP=\$(snapshot)
 BACKEND=\$(invoke backend-builder "Approved brief:
 \$BRIEF
 
@@ -186,9 +275,11 @@ Researcher output:
 Migration Author output:
 \$MIGRATION")
 echo "\$BACKEND" | tee "\$RUN_DIR/05-backend.md"
+enforce_scope backend-builder "\$SNAP"
 
 # ----- STEP 6: Frontend Builder -----
 section "STEP 6 — Frontend Builder"
+SNAP=\$(snapshot)
 FRONTEND=\$(invoke frontend-builder "Approved brief:
 \$BRIEF
 
@@ -198,19 +289,23 @@ Researcher output:
 Backend Builder output (includes API contract):
 \$BACKEND")
 echo "\$FRONTEND" | tee "\$RUN_DIR/06-frontend.md"
+enforce_scope frontend-builder "\$SNAP"
 
 # ----- STEP 7: DevOps Builder -----
 # Returns "Not applicable" if the brief has no infra/CI changes.
 section "STEP 7 — DevOps Builder"
+SNAP=\$(snapshot)
 DEVOPS=\$(invoke devops-builder "Approved brief:
 \$BRIEF
 
 Researcher output:
 \$RESEARCH")
 echo "\$DEVOPS" | tee "\$RUN_DIR/07-devops.md"
+enforce_scope devops-builder "\$SNAP"
 
 # ----- STEP 8: Test Verifier -----
 section "STEP 8 — Test Verifier"
+SNAP=\$(snapshot)
 TEST=\$(invoke test-verifier "Approved story:
 \$STORY
 
@@ -226,6 +321,7 @@ Frontend Builder summary:
 DevOps Builder summary:
 \$DEVOPS")
 echo "\$TEST" | tee "\$RUN_DIR/08-test.md"
+enforce_scope test-verifier "\$SNAP"
 
 # ----- STEP 9: Security Reviewer -----
 section "STEP 9 — Security Reviewer"
@@ -280,6 +376,7 @@ echo "\$VALIDATION" | tee "\$RUN_DIR/11-validator.md"
 
 # ----- STEP 12: Doc Writer -----
 section "STEP 12 — Doc Writer"
+SNAP=\$(snapshot)
 DOCS=\$(invoke doc-writer "Approved story:
 \$STORY
 
@@ -304,6 +401,7 @@ Security Reviewer findings:
 Performance Reviewer findings:
 \$PERF")
 echo "\$DOCS" | tee "\$RUN_DIR/12-docs.md"
+enforce_scope doc-writer "\$SNAP"
 
 pause_for_approval "CHECKPOINT 3: Review diff and open PR?"
 
@@ -343,7 +441,7 @@ invoke() {
 }
 
 section() { echo ""; echo "===== \$1 ====="; echo ""; }
-
+${scopeHelpers()}
 # ----- STEP 1: Researcher -----
 section "STEP 1 — Researcher"
 RESEARCH=\$(invoke researcher "User request: \$REQUEST")
@@ -361,11 +459,13 @@ esac
 
 # ----- STEP 2: Builder -----
 section "STEP 2 — \$AGENT"
+SNAP=\$(snapshot)
 BUILD=\$(invoke "\$AGENT" "User request: \$REQUEST
 
 Researcher output (treat as mini-spec):
 \$RESEARCH")
 echo "\$BUILD" | tee "\$RUN_DIR/02-build.md"
+enforce_scope "\$AGENT" "\$SNAP"
 
 # ----- STEP 3: Validator -----
 section "STEP 3 — Validator"
@@ -474,10 +574,37 @@ researcher → ⏸ (pick backend or frontend) → builder → validator.
 
 researcher only. No code written.
 
-## Limitations vs. Claude Code
+## Path scoping — enforced
+
+Path scoping is **enforced**, not just advised. After each editing agent runs, the
+orchestrator diffs that agent's changes (new + modified files) and runs
+\`.codex/factory-check.mjs\`: any file outside that agent's allow-list, or matching the
+\`forbidden\` list, is **reverted and the chain halts**. This is the version-independent
+analog of Claude Code's PreToolUse hook.
+
+- Mechanism differs from Claude: Codex enforcement is **detect-and-revert after** each
+  \`codex exec\`, not block-before-the-edit — but the end state is identical (out-of-scope
+  edits don't survive). It catches Bash-written files too, since it diffs the tree.
+- It's a no-op unless the manifest declares \`paths\`/\`forbidden\` (so \`.codex/factory-scope.json\`
+  + \`.codex/factory-check.mjs\` are generated) **and** \`node\` + a git repo are present.
+- **Optional stronger layer (current Codex only):** for *prevention* (sandbox-denied writes),
+  add a per-agent permission profile to \`.codex/config.toml\` and invoke with
+  \`codex --profile <agent> -a never exec …\`:
+  \`\`\`toml
+  [permissions.backend-builder]
+  extends = ":workspace"
+  [permissions.backend-builder.filesystem]
+  ":workspace_roots" = "write"
+  "**/*.env"  = "deny"
+  "prisma/**" = "deny"
+  \`\`\`
+  This feature is new (Codex ≥ v0.135) and version-sensitive, and does **not** compose with
+  \`sandbox_mode\` — so the factory does not auto-generate it. The git-diff guard above is the
+  default because it works on any Codex version.
+
+## Other limitations vs. Claude Code
 
 - **No automated fix loops.** If validator reports Critical findings or test-verifier reports failing ACs, re-run the chain after fixing, or fix manually.
-- **Path scoping is prompt-only.** Codex doesn't enforce edit paths at the tool level — agents read AGENTS.md and obey.
 - **No automatic test/typecheck.** The builders' prompts tell them to run validation commands; the orchestrator script doesn't verify they actually did.
 - **Each agent invocation is a fresh \`codex exec\` session.** Context isn't shared — the orchestrator concatenates prior outputs into each prompt explicitly.
 
@@ -485,6 +612,7 @@ researcher only. No code written.
 
 - \`codex\` CLI installed and authenticated (\`codex login\` if needed).
 - Bash 4+ (any modern macOS / Linux).
+- \`node\` on PATH and the repo under git — required for the enforced path scoping above (it self-disables otherwise).
 - Run scripts from the repo root.
 
 ## Regenerating
