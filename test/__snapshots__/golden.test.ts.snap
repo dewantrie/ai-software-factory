@@ -542,7 +542,7 @@ Kiro does not have a Claude-Code-style subagent system, so the chain runs **semi
 
 1. Open Kiro chat. Type:
    \`\`\`
-   #skill-feature-factory build invoice reminders for invoices unpaid > 7 days
+   /feature-factory build invoice reminders for invoices unpaid > 7 days
    \`\`\`
 2. Follow the skill's instructions. Each step calls a specific agent in this order:
    \`#agent-researcher\` → \`#agent-story-writer\` → **(approve story)** → \`#agent-spec-writer\` → **(approve brief)** → \`#agent-migration-author\` (skip if no schema changes) → \`#agent-backend-builder\` → \`#agent-frontend-builder\` (skip if backend-only) → \`#agent-devops-builder\` (skip if no infra) → \`#agent-test-verifier\` → \`#agent-security-reviewer\` → \`#agent-performance-reviewer\` → \`#agent-validator\` → \`#agent-doc-writer\`.
@@ -642,6 +642,16 @@ Edit \`.factory.yaml\` in the repo root, then re-run. Everything under \`.kiro/s
   }
 }
 
+===== .kiro/skills/feature-factory/SKILL.md =====
+---
+name: feature-factory
+description: Full chain. Use when the work spans layers.
+---
+
+# Feature Factory
+
+Full chain. Use when the work spans layers.
+
 ===== .kiro/steering/agent-backend-builder.md =====
 ---
 inclusion: manual
@@ -727,15 +737,6 @@ Do not hand-edit — edit \`.factory.yaml\` or the profile, then re-run \`factor
 ## Notes
 
 Golden fixture manifest.
-
-===== .kiro/steering/skill-feature-factory.md =====
----
-inclusion: manual
----
-
-# Feature Factory
-
-Full chain. Use when the work spans layers.
 
 ===== AGENTS.md =====
 # AGENTS.md — golden-api
@@ -919,6 +920,9 @@ exports[`golden: file tree > the set of generated paths is stable across all thr
 .kiro/agents/validator.json
 .kiro/factory-guard.mjs
 .kiro/factory-scope.json
+.kiro/skills/feature-factory/SKILL.md
+.kiro/skills/quick-fix/SKILL.md
+.kiro/skills/spike/SKILL.md
 .kiro/steering/agent-backend-builder.md
 .kiro/steering/agent-devops-builder.md
 .kiro/steering/agent-doc-writer.md
@@ -932,9 +936,6 @@ exports[`golden: file tree > the set of generated paths is stable across all thr
 .kiro/steering/agent-test-verifier.md
 .kiro/steering/agent-validator.md
 .kiro/steering/project.md
-.kiro/steering/skill-feature-factory.md
-.kiro/steering/skill-quick-fix.md
-.kiro/steering/skill-spike.md
 AGENTS.md
 CLAUDE.md"
 `;

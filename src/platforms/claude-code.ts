@@ -6,6 +6,7 @@ import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
 import { ALLOW_KEY_BY_AGENT, agentAllowMap, scopeConfig } from "../util/scope.js";
 import { DESCRIPTIONS_BY_AGENT } from "../util/agent-meta.js";
+import { skillDescription } from "../util/skill-meta.js";
 
 // Source-of-truth guard script. It's a real, directly-testable .mjs file (see
 // test/factory-guard.test.ts) copied verbatim into each repo's .claude/hooks/ —
@@ -75,7 +76,7 @@ export const claudeCode: PlatformAdapter = {
     // 3. Write each skill to .claude/skills/<name>/SKILL.md
     for (const skill of skills) {
       const body = render(skill.body, platformVars);
-      const description = extractDescription(body) ?? `${skill.name} orchestrator.`;
+      const description = skillDescription(body, 500) ?? `${skill.name} orchestrator.`;
       const file = ["---", `description: ${description}`, "---", "", body.trim(), ""].join("\n");
       const path = join(targetRoot, ".claude", "skills", skill.name, "SKILL.md");
       writeFile(path, file);
@@ -95,25 +96,6 @@ function writeFile(path: string, content: string): void {
   writeFileSync(path, content);
 }
 
-function extractDescription(body: string): string | null {
-  // Pull the first real prose paragraph as the skill description (Claude uses it
-  // to decide when to auto-invoke the skill). Skip leading markdown headings —
-  // every prompt starts with a `# Title`, which must NOT become the description.
-  const paragraphs = body.trim().split(/\n\s*\n/);
-  for (const para of paragraphs) {
-    const prose = para
-      .split("\n")
-      .filter((line) => !/^\s*#{1,6}\s/.test(line)) // drop heading lines
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (prose) {
-      return prose.length > 500 ? prose.slice(0, 497) + "..." : prose;
-    }
-  }
-  return null;
-}
 
 /* ------- Path guard (PreToolUse hooks) ------- */
 

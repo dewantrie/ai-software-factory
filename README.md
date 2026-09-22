@@ -279,7 +279,7 @@ Useful when a central prompt or profile change needs to propagate across 5+ repo
 | `CLAUDE.md` | `.factory.yaml` (your manifest — never overwritten) |
 | `.claude/agents/*.md`, `.claude/skills/*/SKILL.md` | `.gitignore` (your changes stay) |
 | `.claude/hooks/factory-guard.mjs` + `.claude/hooks/factory-scope.json` (if `forbidden:` or any path allow-list is set) | `.claude/settings.json` — **merged, not overwritten**: only the factory's path-guard `PreToolUse` hook and the `permissions.deny` rules derived from `forbidden:` are added/refreshed; your other settings, hooks and permission rules are kept |
-| `.kiro/steering/*`, `.kiro/FACTORY.md` (if Kiro platform) | Anything else in the repo (`src/`, `tests/`, etc.) |
+| `.kiro/steering/*`, `.kiro/skills/*`, `.kiro/FACTORY.md` (if Kiro platform) | Anything else in the repo (`src/`, `tests/`, etc.) |
 | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh`, `.codex/FACTORY.md` (if Codex platform) | `.codex/runs/**` (run history — never touched) |
 
 **Hard rule:** never hand-edit generated files. Edit the manifest, the profile, or the central prompts — then re-run `factory install`. Otherwise your edits are lost next sync.
@@ -317,7 +317,7 @@ factory install                             # 3. regenerate
 
 ### Phase B — multi-platform + multi-repo (shipped)
 
-- ✅ **Kiro adapter** — generates `.kiro/steering/*` (IDE) + `.kiro/agents/*.json` (Kiro CLI) + `.kiro/FACTORY.md`. Path scoping is **enforced on the CLI** via a `preToolUse` hook on `fs_write` (same guard as Claude Code); the IDE flow stays prompt-only
+- ✅ **Kiro adapter** — generates `.kiro/steering/*` (IDE context + agents) + `.kiro/skills/*/SKILL.md` (native Agent Skills) + `.kiro/agents/*.json` (Kiro CLI) + `.kiro/FACTORY.md`. Path scoping is **enforced on the CLI** via a `preToolUse` hook on `fs_write` (same guard as Claude Code); the IDE flow stays prompt-only
 - ✅ **Codex CLI adapter** — generates `AGENTS.md` + `.codex/agents/*` + executable bash orchestrators in `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`. Path scoping is **enforced** by a post-run git-diff check (`.codex/factory-check.mjs`) that reverts out-of-scope edits and halts the chain
 - ✅ `factory init` — interactive manifest wizard with stack auto-detection
 - ✅ `factory sync` — workspace-wide refresh driven by `factory.workspace.yaml`
@@ -526,6 +526,17 @@ platforms — the mechanism differs, the end state doesn't:
   scoping.
 - All three are opt-in per agent in the same way: no allow-list in the manifest
   means that agent is prompt-only.
+
+**Why Codex keeps the post-run check even though it now has `PreToolUse`.**
+Codex gained lifecycle hooks with the same event schema as Claude Code, so
+reusing the shared pre-edit guard looks like an easy win. It isn't. Codex edits
+files through `apply_patch`, and its `PreToolUse` payload carries
+`tool_input.command` — a string holding the patch — not a file path; the docs
+state outright that a hook has no documented way to tell which paths a call will
+write. The shared guard reads `tool_input.file_path`, which Codex never sends,
+so wiring it up would produce a **silent no-op**: the docs would claim enforced,
+and nothing would be. Observing the git tree after the fact is the mechanism
+that actually fits this platform, so it stays.
 
 See [Chapter 4 of the book](docs/book/04-path-enforcement.md) for why it's shaped
 this way.

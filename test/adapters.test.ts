@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
@@ -119,9 +119,9 @@ describe("claude-code adapter", () => {
 });
 
 describe("kiro adapter", () => {
-  test("writes steering files + CLI agents + scope guard + FACTORY.md", async () => {
+  test("writes steering + skills + CLI agents + scope guard + FACTORY.md", async () => {
     const res = await kiro.generate(genArgs());
-    // project.md + agent-steering*N + skill-steering*N + FACTORY.md
+    // project.md + agent-steering*N + skills*N + FACTORY.md
     //   + CLI agents*N + factory-scope.json + factory-guard.mjs (genArgs declares scope)
     expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1 + agents.length + 2);
 
@@ -158,6 +158,39 @@ describe("kiro adapter", () => {
     const doc = read("doc-writer");
     expect(doc.tools).toContain("write");
     expect(doc.hooks).toBeUndefined();
+  });
+
+  test("skills are native Agent Skills, not steering files", async () => {
+    await kiro.generate(genArgs());
+    for (const s of skills) {
+      const p = join(target, ".kiro", "skills", s.name, "SKILL.md");
+      expect(existsSync(p)).toBe(true);
+      const body = readFileSync(p, "utf8");
+      expect(body).toContain(`name: ${s.name}`); // must match the folder name
+      expect(body).toContain("description:");
+      expect(body).not.toContain("inclusion:"); // not a steering file
+      expect(body).not.toContain("{{CONTEXT_FILE}}");
+      // the old manual-inclusion steering file must not linger beside it
+      expect(existsSync(join(target, ".kiro", "steering", `skill-${s.name}.md`))).toBe(false);
+    }
+  });
+
+  test("the skill description is the real trigger prose, not the heading", async () => {
+    await kiro.generate(genArgs());
+    const desc = readFileSync(join(target, ".kiro", "skills", "spike", "SKILL.md"), "utf8")
+      .split("\n")
+      .find((l) => l.startsWith("description:"));
+    expect(desc).toMatch(/^description: Research-only chain\. Use when/);
+  });
+
+  test("a steering skill file from an earlier install is cleaned up", async () => {
+    const stale = join(target, ".kiro", "steering", "skill-spike.md");
+    mkdirSync(dirname(stale), { recursive: true });
+    writeFileSync(stale, "---\ninclusion: manual\n---\nold\n");
+
+    const res = await kiro.generate(genArgs());
+    expect(existsSync(stale)).toBe(false);
+    expect(res.filesWritten).toContain(stale); // reported as touched
   });
 
   test("omits scope guard + agent hooks when the manifest declares no scope", async () => {

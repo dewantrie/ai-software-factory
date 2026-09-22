@@ -7,6 +7,7 @@ import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
 import { ALLOW_KEY_BY_AGENT, scopeConfig, hasScopeToEnforce } from "../util/scope.js";
 import { descriptionFor } from "../util/agent-meta.js";
+import { skillDescription } from "../util/skill-meta.js";
 
 // Reuses the SAME guard as Claude Code: it reads a PreToolUse JSON payload from
 // stdin and exits 2 to block. Verified against Kiro CLI (payload has tool_name
@@ -20,7 +21,7 @@ const CONTEXT_FILE = ".kiro/steering/project.md";
  * IDE (`.kiro/steering/`):
  *   - `project.md` — always-included context (manifest + profile)
  *   - `agent-<name>.md` × N — manual-inclusion agent prompts (`#agent-<name>`)
- *   - `skill-<name>.md` × N — manual-inclusion orchestrators (`#skill-<name>`)
+ *   - (skills are no longer steering files — see `.kiro/skills/` below)
  * In the IDE the chain runs semi-manually and path scoping is prompt-only (no
  * generatable IDE hook contract).
  *
@@ -63,13 +64,29 @@ export const kiro: PlatformAdapter = {
       filesWritten.push(path);
     }
 
-    // 3. Skills — manual-inclusion steering files (invoke via #skill-<name>)
+    // 3. Skills — native Kiro Agent Skills at .kiro/skills/<name>/SKILL.md.
+    //    Kiro matches a request against `description` to invoke one automatically,
+    //    and `/<name>` invokes it by hand. This replaces the old manual-inclusion
+    //    steering files (`#skill-<name>`), which are removed just below so the two
+    //    mechanisms can't sit side by side describing the same chain.
     for (const skill of skills) {
       const body = render(skill.body, platformVars);
-      const file = wrapSteering("manual", body);
-      const path = join(targetRoot, ".kiro", "steering", `skill-${skill.name}.md`);
+      const description = skillDescription(body, 1024) ?? `${skill.name} orchestrator.`;
+      const file = [
+        "---",
+        `name: ${skill.name}`, // must match the folder name
+        `description: ${description}`,
+        "---",
+        "",
+        body.trim(),
+        "",
+      ].join("\n");
+      const path = join(targetRoot, ".kiro", "skills", skill.name, "SKILL.md");
       writeFile(path, file);
       filesWritten.push(path);
+
+      const stale = join(targetRoot, ".kiro", "steering", `skill-${skill.name}.md`);
+      if (removeIfExists(stale)) filesWritten.push(stale);
     }
 
     // 4. Kiro CLI agents — one JSON per agent (kiro-cli chat --agent <name>).
@@ -184,7 +201,7 @@ Kiro does not have a Claude-Code-style subagent system, so the chain runs **semi
 
 1. Open Kiro chat. Type:
    \`\`\`
-   #skill-feature-factory build invoice reminders for invoices unpaid > 7 days
+   /feature-factory build invoice reminders for invoices unpaid > 7 days
    \`\`\`
 2. Follow the skill's instructions. Each step calls a specific agent in this order:
    \`#agent-researcher\` → \`#agent-story-writer\` → **(approve story)** → \`#agent-spec-writer\` → **(approve brief)** → \`#agent-migration-author\` (skip if no schema changes) → \`#agent-backend-builder\` → \`#agent-frontend-builder\` (skip if backend-only) → \`#agent-devops-builder\` (skip if no infra) → \`#agent-test-verifier\` → \`#agent-security-reviewer\` → \`#agent-performance-reviewer\` → \`#agent-validator\` → \`#agent-doc-writer\`.

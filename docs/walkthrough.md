@@ -13,7 +13,7 @@ The chain logic is identical across platforms; only the **entry point** differs.
 | Platform | Tier 3 entry | Tier 2 entry | Tier 1 entry |
 |----------|--------------|--------------|--------------|
 | Claude Code | `/feature-factory <request>` | `/quick-fix <description>` | `/spike <question>` |
-| Kiro | `#skill-feature-factory <request>` | `#skill-quick-fix <description>` | `#skill-spike <question>` |
+| Kiro | `/feature-factory <request>` | `/quick-fix <description>` | `/spike <question>` |
 | Codex CLI | `./.codex/orchestrator/feature-factory.sh <request>` | `./.codex/orchestrator/quick-fix.sh <description>` | `./.codex/orchestrator/spike.sh <question>` |
 
 ### Platform notes — read the one you'll use
@@ -46,7 +46,7 @@ In your project, invoke the chain (substitute the entry from the platform table 
 /feature-factory build invoice reminders — when an invoice has been unpaid for more than 7 days, send the customer a reminder email. Admins should also be able to send a reminder manually from the invoice page.
 ```
 
-(On Kiro: `#skill-feature-factory build invoice reminders — ...`. On Codex CLI: `./.codex/orchestrator/feature-factory.sh "build invoice reminders — ..."`.)
+(On Kiro: `/feature-factory build invoice reminders — ...`. On Codex CLI: `./.codex/orchestrator/feature-factory.sh "build invoice reminders — ..."`.)
 
 ### What makes a good kickoff prompt
 
