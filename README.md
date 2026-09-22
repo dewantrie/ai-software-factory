@@ -309,8 +309,8 @@ factory install                             # 3. regenerate
 
 ### Phase B — multi-platform + multi-repo (shipped)
 
-- ✅ **Kiro adapter** — generates `.kiro/steering/*` + `.kiro/FACTORY.md`
-- ✅ **Codex CLI adapter** — generates `AGENTS.md` + `.codex/agents/*` + executable bash orchestrators in `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`
+- ✅ **Kiro adapter** — generates `.kiro/steering/*` (IDE) + `.kiro/agents/*.json` (Kiro CLI) + `.kiro/FACTORY.md`. Path scoping is **enforced on the CLI** via a `preToolUse` hook on `fs_write` (same guard as Claude Code); the IDE flow stays prompt-only
+- ✅ **Codex CLI adapter** — generates `AGENTS.md` + `.codex/agents/*` + executable bash orchestrators in `.codex/orchestrator/*.sh` + `.codex/FACTORY.md`. Path scoping is **enforced** by a post-run git-diff check (`.codex/factory-check.mjs`) that reverts out-of-scope edits and halts the chain
 - ✅ `factory init` — interactive manifest wizard with stack auto-detection
 - ✅ `factory sync` — workspace-wide refresh driven by `factory.workspace.yaml`
 - ✅ `factory feature start / pull / ship / list / status` — cross-repo contract bridge (MVP)
@@ -360,12 +360,17 @@ A profile is a markdown file under `profiles/`. It contains:
 - Architecture rules
 - Don't-do list
 - Conventions
-- Default paths (documentation only — see note below)
-- Default commands (documentation only — see note below)
+- Default paths (seed values for `factory init` — see note below)
+- Default commands (seed values for `factory init` — see note below)
 
 The profile body is **inlined verbatim** into CLAUDE.md (or the platform's context file) under the `## Profile rules` section, including its own markdown headings. When you write a profile, structure it as a self-contained section because its `## Architecture rules` heading ends up nested inside CLAUDE.md's `## Profile rules`.
 
-The "Default paths" and "Default commands" YAML blocks in the profile are **reference documentation only** — they are not parsed. The real values come from the manifest's `paths:` and `commands:` blocks. Treat them as the suggested starting point a manifest author should copy.
+The "Default paths" and "Default commands" YAML blocks in the profile are read **only by `factory init`**, which parses them (`src/util/profile-defaults.ts`) to pre-fill the wizard's answers and the generated manifest. `factory install` never reads them: at install time the real values come from the manifest's own `paths:` and `commands:` blocks.
+
+Two consequences worth knowing:
+
+- Editing a profile's defaults changes nothing in repos that already have a `.factory.yaml` — `install` won't pick them up, and the manifest is never overwritten. Existing repos must copy the new values in by hand (or re-run `init --force`).
+- A path key the profile suggests but the manifest omits is **not enforced** — the scope guard is generated from the manifest's keys only.
 
 To add a profile for a new stack:
 1. Create `profiles/<your-stack>.md`.
@@ -412,7 +417,31 @@ On Claude Code, path scoping is **enforced**, not just advised:
 
 Limitations: enforcement covers `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only —
 a builder's `Bash` access can still write files, so the guard is a guardrail, not
-a sandbox. Kiro and Codex have no hook mechanism, so they remain prompt-only.
+a sandbox.
+
+### Enforced path scoping (Kiro CLI and Codex)
+
+The same `forbidden:` list and per-agent allow-lists are enforced on the other two
+platforms — the mechanism differs, the end state doesn't:
+
+| Platform | Mechanism | When it fires |
+|----------|-----------|---------------|
+| Claude Code | `PreToolUse` hook → `.claude/hooks/factory-guard.mjs` | Blocks **before** the edit (exit 2) |
+| Kiro **CLI** | `preToolUse` hook on `fs_write` in `.kiro/agents/<name>.json` → `.kiro/factory-guard.mjs` (same guard) | Blocks **before** the write (exit 2) |
+| Codex | Orchestrator diffs the tree after each `codex exec` → `.codex/factory-check.mjs` | **Reverts after** the agent runs, then halts the chain |
+
+- Codex's post-run check catches `Bash`-written files too (it diffs the working
+  tree), so it's slightly stronger on that axis than the pre-edit hooks. It
+  self-disables unless `node` and a git repo are present.
+- **Kiro IDE stays prompt-only.** The IDE advertises a `Pre Tool Use` hook but its
+  on-disk/block contract isn't documented, and declarative `allowedPaths` is
+  reportedly not enforced (kirodotdev/Kiro#7799). Use the CLI agents for enforced
+  scoping.
+- All three are opt-in per agent in the same way: no allow-list in the manifest
+  means that agent is prompt-only.
+
+See [Chapter 4 of the book](docs/book/04-path-enforcement.md) for why it's shaped
+this way.
 
 ## Cross-repo coordination
 

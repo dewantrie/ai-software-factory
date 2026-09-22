@@ -6,9 +6,9 @@
 //   - always blocks edits matching a forbidden glob (relative path or basename)
 //   - if agentName has an allow-list, blocks edits whose relative path matches none of it
 // Do not hand-edit — edit .factory.yaml and re-run `factory install`.
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve, relative } from "node:path";
+import { dirname, basename, join, resolve, relative } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 let config = { forbidden: [], agents: {} };
@@ -61,11 +61,32 @@ const ti = data.tool_input || {};
 const filePath = ti.file_path || ti.notebook_path || ti.path || "";
 if (!filePath) process.exit(0);
 
+// Resolve symlinks before matching. resolve() is purely lexical, so without this
+// a symlink sitting inside an allowed directory (src/services/leak.ts -> ../../.env)
+// would be matched by its link path and sail past the forbidden list. realpath()
+// throws when the target doesn't exist yet — which is the normal case for a Write —
+// so fall back to the deepest ancestor that does exist and re-append the rest.
+function realPath(abs) {
+  try { return realpathSync(abs); } catch {}
+  let dir = dirname(abs);
+  const tail = [basename(abs)];
+  for (;;) {
+    try { return join(realpathSync(dir), ...tail.slice().reverse()); } catch {}
+    const parent = dirname(dir);
+    if (parent === dir) return abs; // reached the root with nothing resolvable
+    tail.push(basename(dir));
+    dir = parent;
+  }
+}
+
 // Normalize to a repo-relative POSIX path. resolve()+relative() collapse '..',
 // '.', and '//' so traversal can't smuggle an out-of-scope path past a glob,
 // and a sibling dir whose name merely shares cwd's prefix isn't mis-sliced.
+// Both sides go through realPath so they agree on symlinked roots (on macOS
+// /tmp and /var are themselves symlinks, so comparing one raw against one
+// resolved would yield a bogus '../..' relative path).
 const cwd = data.cwd || process.cwd();
-let rel = relative(cwd, resolve(cwd, String(filePath)));
+let rel = relative(realPath(cwd), realPath(resolve(cwd, String(filePath))));
 rel = rel.split("\\").join("/");
 const base = rel.split("/").pop() || rel;
 

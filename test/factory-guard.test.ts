@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -87,6 +87,30 @@ describe("per-agent allow-list", () => {
 
   test("an agent absent from config is not allow-list enforced", () => {
     expect(run("frontend-builder", edit("anywhere/x.ts"))).toBe(0);
+  });
+});
+
+describe("symlinks cannot smuggle a path past the globs", () => {
+  beforeEach(() => {
+    withConfig({ forbidden: [".env*"], agents: { "backend-builder": ["src/**"] } });
+    mkdirSync(join(dir, "src"), { recursive: true });
+    mkdirSync(join(dir, "outside"), { recursive: true });
+    writeFileSync(join(dir, ".env"), "SECRET=1\n");
+  });
+
+  test("a symlink in an allowed dir pointing at a forbidden file is blocked", () => {
+    symlinkSync(join(dir, ".env"), join(dir, "src", "leak.ts"));
+    expect(run("backend-builder", edit("src/leak.ts"))).toBe(2);
+  });
+
+  test("a symlinked dir inside the allow-list cannot widen it", () => {
+    symlinkSync(join(dir, "outside"), join(dir, "src", "out"));
+    // The file does not exist yet — the guard must still resolve the linked parent.
+    expect(run("backend-builder", edit("src/out/new.ts"))).toBe(2);
+  });
+
+  test("real (non-symlinked) paths in the allow-list still pass", () => {
+    expect(run("backend-builder", edit("src/real.ts"))).toBe(0);
   });
 });
 

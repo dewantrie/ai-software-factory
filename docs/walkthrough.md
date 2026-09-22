@@ -19,7 +19,7 @@ The chain logic is identical across platforms; only the **entry point** differs.
 ### Platform notes — read the one you'll use
 
 - **Claude Code** — the skill orchestrator is loaded into the main session and drives the chain automatically. Checkpoints pause the conversation; you reply with text. Tool scoping is enforced at the tool level.
-- **Kiro** — the skill orchestrator is a steering file the user (or Kiro's agentic chat) follows. Each agent is invoked separately via `#agent-<name>` after the skill tells you which one is next. Chain runs **semi-manually**. Tool scoping is prompt-only.
+- **Kiro** — the skill orchestrator is a steering file the user (or Kiro's agentic chat) follows. Each agent is invoked separately via `#agent-<name>` after the skill tells you which one is next. Chain runs **semi-manually**. Path scoping is **enforced on the CLI** (`kiro-cli chat --agent <name>` — each editing agent carries a `preToolUse` hook on `fs_write`) but **prompt-only in the IDE**.
 - **Codex CLI** — the orchestrator is a **bash script** that calls `codex exec` per agent. Checkpoints pause via `read -p` in your terminal — type `yes` to continue, anything else to halt. All step outputs are saved under `.codex/runs/<timestamp>-<skill>/` for replay. Phase A: no automated fix loops yet — re-run after Critical validator findings.
 
 ## Before you start
