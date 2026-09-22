@@ -45,6 +45,14 @@ export interface Manifest {
    * behaves, so they are opt-in rather than imposed on every repo.
    */
   hooks?: HookOptions;
+  /**
+   * Opt into Claude Code's OS-level Bash sandbox. Off by default: it constrains
+   * every command in the session, so it is not a change to make on a repo's
+   * behalf. When on, `paths.forbidden` is also emitted as
+   * `sandbox.filesystem.denyWrite` — the only layer that stops a subprocess
+   * (a Node or Python script the agent runs) from writing those files.
+   */
+  sandbox?: boolean;
   platforms: Platform[];
   notes?: string;
 }
@@ -102,6 +110,10 @@ function validateManifest(m: Record<string, unknown>, path: string): void {
     }
   }
 
+  if (m.sandbox !== undefined && typeof m.sandbox !== "boolean") {
+    throw new Error(`Manifest ${path}: sandbox must be true or false.`);
+  }
+
   const validPlatforms: Platform[] = ["claude-code", "kiro", "codex"];
   const platforms = m.platforms;
   if (!Array.isArray(platforms) || platforms.length === 0) {
@@ -135,6 +147,7 @@ function normalizeManifest(m: Record<string, unknown>): Manifest {
     dontDo: (m["dont-do"] as string[]) ?? [],
     models: m.models as Record<string, string> | undefined,
     hooks: normalizeHooks(m.hooks),
+    sandbox: m.sandbox === true ? true : undefined,
     platforms: m.platforms as Platform[],
     notes: m.notes as string | undefined,
   };

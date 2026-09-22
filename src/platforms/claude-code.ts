@@ -149,6 +149,28 @@ function denyRule(glob: string): string {
 }
 
 /**
+ * A forbidden glob as OS-level sandbox write-denials.
+ *
+ * This is the only layer that stops a *subprocess* — a Node or Python script
+ * the agent runs via Bash — from writing the file. The PreToolUse hook sees
+ * only the edit tools; `permissions.deny` additionally covers the shell
+ * commands Claude Code recognises; the sandbox covers everything, because the
+ * OS enforces it. A `denyWrite` holds inside the wider allow that makes the
+ * repo writable, so a broad allow can't silently re-expose a secret.
+ *
+ * Two rules per glob, because the syntaxes disagree about depth. `forbidden:`
+ * is gitignore-flavoured, where a bare `secrets.json` matches at any depth.
+ * Sandbox paths resolve `./x` against the project root, and it isn't documented
+ * whether a leading double-star segment also matches zero segments — so emit the
+ * root-anchored form *and* the any-depth form. Over-emitting is the safe
+ * direction for a deny list: the worst case is a redundant rule, not a hole.
+ */
+function sandboxDenyWrite(glob: string): string[] {
+  const bare = glob.replace(/^\*\*\//, "");
+  return [`./${bare}`, `./**/${bare}`];
+}
+
+/**
  * Write (or remove) the scope guard. Emits the script + config when there is
  * anything to enforce (forbidden non-empty OR any agent allow-list present).
  * The session-level settings.json hook and the `permissions.deny` rules are
@@ -177,6 +199,7 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
         hook: false,
         forbidden: [],
         prevForbidden,
+        sandbox: manifest.sandbox === true,
         ...lifecycle(targetRoot, manifest, filesWritten),
       })
     ) {
@@ -196,6 +219,7 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
       hook: hasForbidden,
       forbidden: config.forbidden,
       prevForbidden,
+      sandbox: manifest.sandbox === true,
       ...lifecycle(targetRoot, manifest, filesWritten),
     })
   ) {
@@ -323,6 +347,8 @@ interface SettingsUpdate {
   stop: boolean;
   /** Whether the SubagentStop output recorder should be wired up. */
   capture: boolean;
+  /** Whether the OS-level Bash sandbox should be enabled and fed denyWrite rules. */
+  sandbox: boolean;
 }
 
 /**
@@ -359,6 +385,35 @@ function updateSettings(settingsPath: string, update: SettingsUpdate): boolean {
   else delete permissions.deny;
   if (Object.keys(permissions).length > 0) settings.permissions = permissions;
   else delete settings.permissions;
+
+  // --- sandbox.filesystem.denyWrite (same ownership rule as permissions.deny) ---
+  const sandbox = (settings.sandbox ?? {}) as Record<string, unknown>;
+  const filesystem = (sandbox.filesystem ?? {}) as Record<string, unknown>;
+  const existingDenyWrite = Array.isArray(filesystem.denyWrite)
+    ? (filesystem.denyWrite as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
+  const ourDenyWrite = new Set(
+    [...update.prevForbidden, ...update.forbidden].flatMap(sandboxDenyWrite),
+  );
+  const keptDenyWrite = existingDenyWrite.filter((r) => !ourDenyWrite.has(r));
+  const nextDenyWrite = update.sandbox
+    ? [...keptDenyWrite, ...update.forbidden.flatMap(sandboxDenyWrite)]
+    : keptDenyWrite;
+
+  // `enabled` before `filesystem`, so the generated block reads top-down.
+  if (update.sandbox) sandbox.enabled = true;
+  if (nextDenyWrite.length > 0) filesystem.denyWrite = nextDenyWrite;
+  else delete filesystem.denyWrite;
+  if (Object.keys(filesystem).length > 0) sandbox.filesystem = filesystem;
+  else delete sandbox.filesystem;
+  // Turning the manifest key off cleans up only what looks like ours: a bare
+  // `{ enabled: true }` we would have written. Any other sandbox config means
+  // the user configured it themselves, so `enabled` is left alone.
+  if (!update.sandbox && Object.keys(sandbox).length === 1 && sandbox.enabled === true) {
+    delete sandbox.enabled;
+  }
+  if (Object.keys(sandbox).length > 0) settings.sandbox = sandbox;
+  else delete settings.sandbox;
 
   const after = JSON.stringify(settings);
   if (after === before && (existed || after === "{}")) return false;

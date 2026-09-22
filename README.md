@@ -214,6 +214,10 @@ hooks:                                     # optional — both default to false
   stop-on-failing-validation: true         # don't end a turn while checks fail
   capture-agent-output: true               # record each agent's output to .factory/runs/
 
+sandbox: true                              # optional, default false — OS-level Bash
+                                           # sandbox; also denies writes to `forbidden:`
+                                           # for subprocesses (Claude Code only)
+
 platforms:                                 # required — which adapters to run
   - claude-code
   - kiro
@@ -449,10 +453,39 @@ Your own rules are left alone. On re-install the factory prunes only the rules
 derived from the previous `forbidden:` list (recorded in `factory-scope.json`),
 so shrinking or renaming the list cleans up after itself.
 
-This still isn't a sandbox: a Node or Python script the agent runs can open
-files itself, which neither layer sees. For that, enable
-[Claude Code's sandbox](https://code.claude.com/docs/en/sandboxing) —
-OS-level, and it covers child processes.
+Neither layer sees a Node or Python script the agent runs, which opens files
+itself. For that, set `sandbox: true` — see below.
+
+### OS-level sandbox (Claude Code, opt-in)
+
+`sandbox: true` in the manifest turns on
+[Claude Code's Bash sandbox](https://code.claude.com/docs/en/sandboxing) and
+emits every `forbidden:` glob as a `sandbox.filesystem.denyWrite` rule. This is
+the layer that finally closes the subprocess hole: enforcement is OS-level
+(Seatbelt on macOS, bubblewrap on Linux/WSL2), so it covers a command's **child
+processes** too — the script writing the file, not just the tool call.
+
+The rule that makes this work: a `denyWrite` holds inside the wider allow that
+makes the repo writable, so denying `./.env*` bites even though the whole
+project root is writable.
+
+Two rules are emitted per glob — `./x` and `./**/x`. The syntaxes disagree
+about depth: `forbidden:` is gitignore-flavoured, where a bare filename matches
+anywhere, while sandbox paths resolve `./x` against the project root and it
+isn't documented whether a leading `**/` also matches zero segments. For a deny
+list, over-emitting is the safe direction.
+
+Off by default: the sandbox constrains every command in the session, so it
+isn't a change to make on a repo's behalf. Turning it back off removes our
+rules, and removes `enabled` only if that's all we wrote — a sandbox you
+configured yourself is left alone. Not supported on native Windows; run inside
+WSL2.
+
+Codex is not wired up. It does have an OS-level sandbox (`sandbox_mode`,
+`sandbox_workspace_write.writable_roots`) and per-path permission profiles, but
+the two are mutually exclusive — its docs say not to combine them — and
+generating a `.codex/config.toml` would mean owning a file that also carries the
+user's own Codex configuration. Left alone rather than guessed at.
 
 ### Lifecycle hooks (Claude Code, opt-in)
 

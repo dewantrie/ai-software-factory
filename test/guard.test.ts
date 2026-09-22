@@ -178,6 +178,65 @@ describe("lifecycle hooks (opt-in)", () => {
   });
 });
 
+describe("sandbox (opt-in)", () => {
+  async function generateSandbox(sandbox: boolean, forbidden = [".env*", "**/secrets.*"]) {
+    return claudeCode.generate({
+      targetRoot: target,
+      manifest: { ...manifest({ forbidden }), sandbox: sandbox || undefined },
+      agents,
+      skills,
+      profileBody,
+    });
+  }
+
+  test("off by default — no sandbox block at all", async () => {
+    await generateSandbox(false);
+    expect(settings().sandbox).toBeUndefined();
+  });
+
+  test("on: enables the sandbox and denies writes to every forbidden glob", async () => {
+    await generateSandbox(true);
+    expect(settings().sandbox.enabled).toBe(true);
+    // Both forms per glob: root-anchored and any-depth (the syntaxes disagree
+    // on whether a leading double-star also matches zero segments).
+    expect(settings().sandbox.filesystem.denyWrite).toEqual([
+      "./.env*",
+      "./**/.env*",
+      "./secrets.*",
+      "./**/secrets.*",
+    ]);
+  });
+
+  test("is idempotent and keeps the user's own denyWrite entries", async () => {
+    const p = join(target, ".claude", "settings.json");
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify({ sandbox: { filesystem: { denyWrite: ["./vendor"] } } }));
+
+    await generateSandbox(true, [".env*"]);
+    await generateSandbox(true, [".env*"]);
+    expect(settings().sandbox.filesystem.denyWrite).toEqual(["./vendor", "./.env*", "./**/.env*"]);
+  });
+
+  test("turning it off removes our rules and the bare enabled flag we wrote", async () => {
+    await generateSandbox(true, [".env*"]);
+    await generateSandbox(false, [".env*"]);
+    expect(settings().sandbox).toBeUndefined();
+  });
+
+  test("turning it off leaves a sandbox the user configured themselves", async () => {
+    const p = join(target, ".claude", "settings.json");
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify({ sandbox: { enabled: true, network: { allowedDomains: ["github.com"] } } }));
+
+    await generateSandbox(true, [".env*"]);
+    await generateSandbox(false, [".env*"]);
+    const s = settings().sandbox;
+    expect(s.enabled).toBe(true); // theirs, not ours to remove
+    expect(s.network.allowedDomains).toEqual(["github.com"]);
+    expect(s.filesystem).toBeUndefined(); // ours, cleaned up
+  });
+});
+
 describe("permissions.deny from forbidden", () => {
   const deny = () => settings().permissions?.deny;
 
