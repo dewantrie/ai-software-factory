@@ -9,6 +9,7 @@ import { claudeCode } from "../src/platforms/claude-code.js";
 import { kiro } from "../src/platforms/kiro.js";
 import { codex } from "../src/platforms/codex.js";
 import { getAdapter, allPlatforms } from "../src/platforms/index.js";
+import { relevantAgents } from "../src/util/scope.js";
 import type { Manifest } from "../src/manifest.js";
 
 const FACTORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,6 +40,12 @@ function genArgs() {
   return { targetRoot: target, manifest, agents, skills, profileBody };
 }
 
+// Editing agents are only generated when the manifest declares their paths, so
+// the expected set is derived from the manifest rather than hardcoded. This
+// manifest declares `backend` only — no frontend, migrations, infra, tests or
+// docs — so those builders should be absent.
+const expected = () => relevantAgents(agents, manifest);
+
 describe("fixture sanity", () => {
   test("there are agents and skills to render", () => {
     expect(agents.length).toBeGreaterThan(0);
@@ -49,16 +56,18 @@ describe("fixture sanity", () => {
 describe("claude-code adapter", () => {
   test("writes CLAUDE.md + one file per agent + one SKILL.md per skill", async () => {
     const res = await claudeCode.generate(genArgs());
-    // CLAUDE.md + agents + skills + scope config + guard script + settings.json
-    // (the manifest has a forbidden list) + FACTORY.md
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 3 + 1);
+    // CLAUDE.md + relevant agents + skills + scope config + guard script
+    // + settings.json (the manifest has a forbidden list) + FACTORY.md
+    expect(res.filesWritten.length).toBe(1 + expected().length + skills.length + 3 + 1);
+    expect(expected().map((a) => a.name)).toContain("backend-builder");
+    expect(expected().map((a) => a.name)).not.toContain("frontend-builder");
 
     const claudeMd = readFileSync(join(target, "CLAUDE.md"), "utf8");
     expect(claudeMd).toContain("# CLAUDE.md");
     expect(claudeMd).toContain("billing-api");
 
-    // Every agent file exists with Claude-Code frontmatter and substituted context var
-    for (const a of agents) {
+    // Every generated agent file has Claude-Code frontmatter + substituted context var
+    for (const a of expected()) {
       const body = readFileSync(join(target, ".claude", "agents", `${a.name}.md`), "utf8");
       expect(body.startsWith("---")).toBe(true);
       expect(body).toContain(`name: ${a.name}`);
@@ -96,7 +105,7 @@ describe("claude-code adapter", () => {
     // hook fired. Emitting a frontmatter hook would be dead config claiming
     // enforcement, so scoping rides on the session hook + `agent_type` instead.
     await claudeCode.generate(genArgs());
-    for (const a of agents) {
+    for (const a of expected()) {
       const body = readFileSync(join(target, ".claude", "agents", `${a.name}.md`), "utf8");
       expect(body).not.toContain("hooks:");
       expect(body).not.toContain("PreToolUse");
@@ -119,13 +128,14 @@ describe("kiro adapter", () => {
     const res = await kiro.generate(genArgs());
     // project.md + agent-steering*N + skills*N + FACTORY.md
     //   + CLI agents*N + factory-scope.json + factory-guard.mjs (genArgs declares scope)
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1 + agents.length + 2);
+    const n = expected().length;
+    expect(res.filesWritten.length).toBe(1 + n + skills.length + 1 + n + 2);
 
     const project = readFileSync(join(target, ".kiro", "steering", "project.md"), "utf8");
     expect(project).toContain("inclusion: always");
 
     const agentFile = readFileSync(
-      join(target, ".kiro", "steering", `agent-${agents[0]!.name}.md`),
+      join(target, ".kiro", "steering", `agent-${expected()[0]!.name}.md`),
       "utf8",
     );
     expect(agentFile).toContain("inclusion: manual");
@@ -150,10 +160,9 @@ describe("kiro adapter", () => {
     expect(researcher.tools).not.toContain("write");
     expect(researcher.hooks).toBeUndefined();
 
-    // doc-writer has no `docs` list in genArgs → editing-capable but opt-in absent → no hook
-    const doc = read("doc-writer");
-    expect(doc.tools).toContain("write");
-    expect(doc.hooks).toBeUndefined();
+    // doc-writer has no `docs` list in genArgs, so it is not generated at all —
+    // an editing agent with no declared paths would otherwise be unscoped.
+    expect(existsSync(join(target, ".kiro", "agents", "doc-writer.json"))).toBe(false);
   });
 
   test("skills are native Agent Skills, not steering files", async () => {
@@ -201,17 +210,19 @@ describe("kiro adapter", () => {
     await kiro.generate({ targetRoot: target, manifest: bare, agents, skills, profileBody });
     expect(existsSync(join(target, ".kiro", "factory-scope.json"))).toBe(false);
     expect(existsSync(join(target, ".kiro", "factory-guard.mjs"))).toBe(false);
-    const be = JSON.parse(readFileSync(join(target, ".kiro", "agents", "backend-builder.json"), "utf8"));
-    expect(be.hooks).toBeUndefined(); // no scope declared → no hook
+    // A manifest with no paths declares no editing territory, so no editing
+    // agent is generated — read-only agents still are.
+    expect(existsSync(join(target, ".kiro", "agents", "backend-builder.json"))).toBe(false);
+    expect(existsSync(join(target, ".kiro", "agents", "researcher.json"))).toBe(true);
   });
 });
 
 describe("codex adapter", () => {
   test("writes AGENTS.md + agent files + 3 executable orchestrators + FACTORY.md + scope guard", async () => {
     const res = await codex.generate(genArgs());
-    // AGENTS.md + agents + orchestrators + FACTORY.md + factory-scope.json + factory-check.mjs
-    // (the genArgs manifest has backend + forbidden → scope is enforced)
-    expect(res.filesWritten.length).toBe(1 + agents.length + skills.length + 1 + 2);
+    // AGENTS.md + relevant agents + orchestrators + FACTORY.md + factory-scope.json
+    // + factory-check.mjs (the genArgs manifest has backend + forbidden)
+    expect(res.filesWritten.length).toBe(1 + expected().length + skills.length + 1 + 2);
 
     expect(existsSync(join(target, "AGENTS.md"))).toBe(true);
     expect(existsSync(join(target, ".codex", "factory-scope.json"))).toBe(true);

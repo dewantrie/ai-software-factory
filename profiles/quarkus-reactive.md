@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Quarkus Reactive + Hibernate Reactive Panache (backend-only)
 
 Stack assumptions:

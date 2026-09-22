@@ -1,3 +1,7 @@
+---
+layers: [frontend]
+---
+
 # Profile: React + Vite (single-app TypeScript frontend / SPA)
 
 Stack assumptions:

@@ -4,6 +4,7 @@ import { input, select, checkbox, confirm } from "@inquirer/prompts";
 import { stringify as yamlStringify } from "yaml";
 import type { Layer, Platform } from "../manifest.js";
 import { parseProfileDefaults } from "../util/profile-defaults.js";
+import { loadProfileMeta } from "../render.js";
 import { detectStack } from "../util/detect-stack.js";
 import { allPlatforms, getAdapter } from "../platforms/index.js";
 
@@ -52,10 +53,18 @@ export async function init(opts: InitOptions): Promise<void> {
   })) as Layer;
 
   // 3. Profile
-  const availableProfiles = listProfiles(opts.factoryRoot);
-  if (availableProfiles.length === 0) {
+  const allProfiles = listProfiles(opts.factoryRoot);
+  if (allProfiles.length === 0) {
     console.error(`No profiles found in ${opts.factoryRoot}/profiles/. Cannot continue.`);
     process.exit(1);
+  }
+  // Offer only the profiles that suit the chosen layer. Some layers (worker,
+  // mobile) have no profile yet, so fall back to the full list rather than
+  // presenting an empty prompt.
+  const forLayer = allProfiles.filter((p) => loadProfileMeta(opts.factoryRoot, p).layers.includes(layer));
+  const availableProfiles = forLayer.length > 0 ? forLayer : allProfiles;
+  if (forLayer.length === 0) {
+    console.log(`\n(No profile is marked for layer "${layer}" — showing all of them.)`);
   }
   const profile = await select({
     message: "Stack profile (rules + defaults pack):",
@@ -91,13 +100,13 @@ export async function init(opts: InitOptions): Promise<void> {
   });
 
   // 5. Platforms
+  // Nothing is pre-selected on purpose. A pre-checked default is a trap here:
+  // arrow keys move the cursor but only SPACE toggles, so arrowing to "codex"
+  // and pressing enter used to submit the pre-checked "claude-code" instead.
   const platforms = (await checkbox({
-    message: "AI platforms to generate files for (space to toggle):",
-    choices: allPlatforms.map((p) => ({
-      value: p,
-      name: p,
-      checked: p === "claude-code",
-    })),
+    message: "AI platforms — press SPACE to select, ENTER to confirm:",
+    choices: allPlatforms.map((p) => ({ value: p, name: p })),
+    required: true,
   })) as Platform[];
 
   if (platforms.length === 0) {

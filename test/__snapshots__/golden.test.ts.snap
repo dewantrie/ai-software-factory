@@ -320,8 +320,10 @@ invoke() {
   local agent_file="$CODEX_DIR/agents/$agent_name.md"
 
   if [ ! -f "$agent_file" ]; then
-    echo "ERROR: agent prompt file not found: $agent_file" >&2
-    exit 1
+    # Not an error: this repo's manifest declares no paths for that agent, so it
+    # was never generated. Skip the step rather than halting the chain.
+    echo "(skipped $agent_name — not generated for this repo)" >&2
+    return 0
   fi
 
   codex exec "$(cat "$agent_file")

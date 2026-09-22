@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Python + FastAPI + SQLAlchemy (backend-only)
 
 Stack assumptions:

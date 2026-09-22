@@ -1,3 +1,7 @@
+---
+layers: [fullstack, frontend]
+---
+
 # Profile: Next.js App Router + Prisma
 
 Stack assumptions:

@@ -147,7 +147,27 @@ Claude Code by stripping the scoping section from CLAUDE.md, on Kiro by standing
 throwaway agent config with a neutral prompt and the real hook. Any future check of
 this kind needs the same trick.
 
-### D10 — Anything that changes session behaviour is opt-in
+### D14 — Declared paths decide which agents exist
+
+**Decision:** generate an editing agent only when the manifest declares its path
+key; always generate the read-only ones. Re-install deletes agents that are no longer
+relevant.
+**Why:** `layer` used to be decorative — it appeared in four places, all display
+strings, and filtered nothing. A frontend-only repo shipped a `migration-author` for a
+database it did not have. The cost was not noise: that agent had no key in
+`paths`, so it had no allow-list, so the guard fell through to the forbidden list
+alone and it could write **anywhere**. Verified on the demo frontend repo — a
+`backend-builder` write to `src/components/Evil.tsx` returned exit 0. The agent nobody
+wanted was the least constrained one in the repo.
+**What it buys:** an invariant rather than a rule to remember — every generated editing
+agent has an entry in `factory-scope.json`, because the same manifest key produces both.
+**Trade-off:** narrowing `paths:` now removes agents on the next `sync`, which is a
+bigger change than it looks. It is the right direction (fewer, scoped agents) but it is
+not additive, so it is called out in the README rather than left to be discovered.
+**Preserved:** D6's distinction. An absent key means "this agent does not exist here";
+a key present but empty means "it exists and may edit nothing".
+
+
 
 **Decision:** `models:`, `hooks:` and `sandbox:` all default to off, and generated output
 is byte-identical until a manifest asks for them.

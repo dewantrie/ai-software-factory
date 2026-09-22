@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Go + Echo + sqlc (backend-only)
 
 Stack assumptions:

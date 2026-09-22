@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Bun + Hono + Drizzle (backend-only)
 
 Stack assumptions:

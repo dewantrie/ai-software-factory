@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Python library (PyPI-publishable or internal-shared)
 
 Stack assumptions:

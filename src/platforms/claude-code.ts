@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Manifest } from "../manifest.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
-import { ALLOW_KEY_BY_AGENT, agentAllowMap, scopeConfig } from "../util/scope.js";
+import { agentAllowMap, scopeConfig, relevantAgents } from "../util/scope.js";
 import { DESCRIPTIONS_BY_AGENT } from "../util/agent-meta.js";
 import { skillDescription } from "../util/skill-meta.js";
 
@@ -33,8 +33,17 @@ export const claudeCode: PlatformAdapter = {
   name: "claude-code",
   contextFileName: "CLAUDE.md",
 
-  async generate({ targetRoot, manifest, agents, skills, profileBody }) {
+  async generate({ targetRoot, manifest, agents: allAgents, skills, profileBody }) {
     const filesWritten: string[] = [];
+    // An editing agent only exists here if the manifest declares its paths.
+    const agents = relevantAgents(allAgents, manifest);
+    // Drop agents a previous install left behind: an agent that is no longer
+    // relevant has no allow-list either, so leaving it would leave an unscoped
+    // writer in the repo.
+    for (const stale of allAgents.filter((a) => !agents.includes(a))) {
+      const p = join(targetRoot, ".claude", "agents", `${stale.name}.md`);
+      if (removeIfExists(p)) filesWritten.push(p);
+    }
 
     // 1. Write CLAUDE.md at repo root
     const contextBody = buildContextFile({

@@ -1,3 +1,7 @@
+---
+layers: [backend]
+---
+
 # Profile: Node + TypeScript + Fastify (backend-only)
 
 Stack assumptions:

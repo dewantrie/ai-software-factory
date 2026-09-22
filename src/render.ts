@@ -22,6 +22,26 @@ export function loadPrompts(factoryRoot: string): { agents: PromptFile[]; skills
   };
 }
 
+/**
+ * Profile frontmatter, used by `factory init` to offer only the profiles that
+ * suit the chosen layer. It is metadata *about* the profile, never part of the
+ * rules, so `loadProfile` strips it before the body is inlined into a context
+ * file.
+ */
+export interface ProfileMeta {
+  layers: string[];
+}
+
+/** Read a profile's frontmatter without loading it as rules. */
+export function loadProfileMeta(factoryRoot: string, profileName: string): ProfileMeta {
+  const path = join(resolve(factoryRoot, "profiles"), `${profileName}.md`);
+  if (!existsSync(path)) return { layers: [] };
+  const match = /^---\n([\s\S]*?)\n---\n/.exec(readFileSync(path, "utf8"));
+  const line = match?.[1]?.split("\n").find((l) => l.startsWith("layers:"));
+  const inner = line?.slice("layers:".length).trim().replace(/^\[|\]$/g, "") ?? "";
+  return { layers: inner ? inner.split(",").map((s) => s.trim()).filter(Boolean) : [] };
+}
+
 export function loadProfile(factoryRoot: string, profileName: string): string {
   const dir = resolve(factoryRoot, "profiles");
   const path = join(dir, `${profileName}.md`);
@@ -32,7 +52,8 @@ export function loadProfile(factoryRoot: string, profileName: string): string {
       .sort();
     throw new Error(`Profile "${profileName}" not found. Available: ${available.join(", ")}`);
   }
-  return readFileSync(path, "utf8");
+  // Drop the frontmatter — it is metadata for the wizard, not rules for an agent.
+  return readFileSync(path, "utf8").replace(/^---\n[\s\S]*?\n---\n+/, "");
 }
 
 function loadDir(dir: string): PromptFile[] {

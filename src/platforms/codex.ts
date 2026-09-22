@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Manifest } from "../manifest.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
-import { scopeConfig, hasScopeToEnforce } from "../util/scope.js";
+import { scopeConfig, hasScopeToEnforce, relevantAgents } from "../util/scope.js";
 
 // Codex post-run scope checker — copied verbatim into .codex/ and invoked by the
 // orchestrator after each editing agent. Resolved relative to this module so it
@@ -33,8 +33,13 @@ export const codex: PlatformAdapter = {
   name: "codex",
   contextFileName: "AGENTS.md",
 
-  async generate({ targetRoot, manifest, agents, skills, profileBody }) {
+  async generate({ targetRoot, manifest, agents: allAgents, skills, profileBody }) {
     const filesWritten: string[] = [];
+    const agents = relevantAgents(allAgents, manifest);
+    for (const stale of allAgents.filter((a) => !agents.includes(a))) {
+      const p = join(targetRoot, ".codex", "agents", `${stale.name}.md`);
+      if (removeIfExists(p)) filesWritten.push(p);
+    }
 
     const platformVars = { CONTEXT_FILE: "AGENTS.md" };
 
@@ -203,8 +208,10 @@ invoke() {
   local agent_file="\$CODEX_DIR/agents/\$agent_name.md"
 
   if [ ! -f "\$agent_file" ]; then
-    echo "ERROR: agent prompt file not found: \$agent_file" >&2
-    exit 1
+    # Not an error: this repo's manifest declares no paths for that agent, so it
+    # was never generated. Skip the step rather than halting the chain.
+    echo "(skipped \$agent_name — not generated for this repo)" >&2
+    return 0
   fi
 
   codex exec "\$(cat "\$agent_file")

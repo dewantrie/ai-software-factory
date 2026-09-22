@@ -1,3 +1,7 @@
+---
+layers: [frontend]
+---
+
 # Profile: React + rsbuild + Module Federation (frontend-only, micro-frontend monorepo)
 
 Stack assumptions:

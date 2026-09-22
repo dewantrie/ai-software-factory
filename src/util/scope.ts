@@ -48,3 +48,29 @@ export function scopeConfig(manifest: Manifest, contextFile: string): ScopeConfi
 export function hasScopeToEnforce(config: ScopeConfig): boolean {
   return config.forbidden.length > 0 || Object.keys(config.agents).length > 0;
 }
+
+/**
+ * Whether this agent belongs in this repo at all.
+ *
+ * Read-only agents always do — researching or reviewing is useful anywhere.
+ * An *editing* agent is only generated when the manifest declares the paths it
+ * owns. A frontend-only repo has no business shipping a `migration-author` for
+ * a database it doesn't have, and the cost isn't just noise: an editing agent
+ * with no declared paths gets no allow-list, so the guard falls through to the
+ * forbidden list alone and that agent can write **anywhere**. The unwanted
+ * agent was the least constrained one in the repo.
+ *
+ * Note the distinction the manifest can still express, and which D6 depends on:
+ * an absent key means "this agent does not exist here", while a key present but
+ * empty (`frontend: []`) means "it exists and may edit nothing".
+ */
+export function isAgentRelevant(agentName: string, manifest: Manifest): boolean {
+  const key = ALLOW_KEY_BY_AGENT[agentName];
+  if (!key) return true; // read-only agent
+  return manifest.paths[key] !== undefined;
+}
+
+/** The agents that belong in this repo, preserving input order. */
+export function relevantAgents<T extends { name: string }>(agents: T[], manifest: Manifest): T[] {
+  return agents.filter((a) => isAgentRelevant(a.name, manifest));
+}

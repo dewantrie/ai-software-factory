@@ -5,7 +5,7 @@ import type { Manifest } from "../manifest.js";
 import type { PromptFile } from "../render.js";
 import type { PlatformAdapter } from "./index.js";
 import { buildContextFile, render } from "../render.js";
-import { ALLOW_KEY_BY_AGENT, scopeConfig, hasScopeToEnforce } from "../util/scope.js";
+import { ALLOW_KEY_BY_AGENT, scopeConfig, hasScopeToEnforce, relevantAgents } from "../util/scope.js";
 import { descriptionFor } from "../util/agent-meta.js";
 import { skillDescription } from "../util/skill-meta.js";
 
@@ -42,8 +42,18 @@ export const kiro: PlatformAdapter = {
   name: "kiro",
   contextFileName: ".kiro/steering/project.md",
 
-  async generate({ targetRoot, manifest, agents, skills, profileBody }) {
+  async generate({ targetRoot, manifest, agents: allAgents, skills, profileBody }) {
     const filesWritten: string[] = [];
+    const agents = relevantAgents(allAgents, manifest);
+    // Remove agents a previous install left behind, on both surfaces.
+    for (const stale of allAgents.filter((a) => !agents.includes(a))) {
+      for (const p of [
+        join(targetRoot, ".kiro", "steering", `agent-${stale.name}.md`),
+        join(targetRoot, ".kiro", "agents", `${stale.name}.json`),
+      ]) {
+        if (removeIfExists(p)) filesWritten.push(p);
+      }
+    }
 
     const platformVars = {
       CONTEXT_FILE,

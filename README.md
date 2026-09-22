@@ -439,6 +439,27 @@ Limitations: enforcement covers `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only �
 a builder's `Bash` access can still write files, so the guard is a guardrail, not
 a sandbox.
 
+### Which agents a repo gets
+
+An editing agent is generated **only when the manifest declares the paths it
+owns**. A frontend-only repo gets no `backend-builder`, no `migration-author`,
+no `devops-builder`; a repo with no `docs:` key gets no `doc-writer`. Read-only
+agents (researcher, story-writer, spec-writer, validator, and the two reviewers)
+are always generated — inspecting and reviewing is useful anywhere.
+
+This is not only tidiness. An editing agent with no declared paths gets no
+allow-list, so the guard falls through to the forbidden list alone and **that
+agent can write anywhere** — the agent nobody wanted was the least constrained
+one in the repo. Tying generation to declared paths removes the case entirely:
+every generated editing agent has an entry in `factory-scope.json`.
+
+Re-installing also removes agents a previous manifest left behind, so narrowing
+`paths:` actually narrows the repo instead of leaving a stale writer on disk.
+
+An absent key and an empty list still mean different things: `frontend:` absent
+means "no frontend builder here", while `frontend: []` means "it exists and may
+edit nothing".
+
 ### Declarative deny rules (Claude Code)
 
 Alongside the hook, every `forbidden:` glob is also emitted into
