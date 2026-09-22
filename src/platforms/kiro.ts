@@ -137,6 +137,11 @@ function cliAgentConfig(agent: PromptFile, manifest: Manifest): Record<string, u
     resources: [`file://${CONTEXT_FILE}`],
   };
 
+  // Per-agent model, only when the manifest names one (Kiro CLI agent configs
+  // take a `model` field; omitting it leaves the agent on Kiro's default).
+  const model = manifest.models?.[agent.name];
+  if (model) config.model = model;
+
   // Opt-in enforcement: only when this agent's allow-list is present in the manifest.
   if (isEditing && manifest.paths[allowKey] !== undefined) {
     config.hooks = {

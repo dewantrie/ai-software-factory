@@ -114,6 +114,55 @@ describe("path guard behavior", () => {
   });
 });
 
+describe("permissions.deny from forbidden", () => {
+  const deny = () => settings().permissions?.deny;
+
+  test("each forbidden glob becomes an Edit() rule", async () => {
+    await generate({ forbidden: [".env*", "**/secrets.*"] });
+    expect(deny()).toEqual(["Edit(.env*)", "Edit(**/secrets.*)"]);
+  });
+
+  test("uses Edit(), never Write() — only Read/Edit path rules are consulted", async () => {
+    await generate({ forbidden: [".env*"] });
+    for (const rule of deny() as string[]) {
+      expect(rule.startsWith("Edit(")).toBe(true);
+    }
+  });
+
+  test("does not deny reads — forbidden means 'may not edit'", async () => {
+    await generate({ forbidden: [".env*"] });
+    expect(JSON.stringify(deny())).not.toContain("Read(");
+  });
+
+  test("preserves the user's own deny rules and is idempotent", async () => {
+    const p = join(target, ".claude", "settings.json");
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify({ permissions: { deny: ["Bash(rm *)"], allow: ["Bash(pnpm *)"] } }));
+
+    await generate({ forbidden: [".env*"] });
+    await generate({ forbidden: [".env*"] });
+
+    expect(deny()).toEqual(["Bash(rm *)", "Edit(.env*)"]); // no duplicate
+    expect(settings().permissions.allow).toEqual(["Bash(pnpm *)"]);
+  });
+
+  test("a shrunk forbidden list prunes the stale rule it owned", async () => {
+    await generate({ forbidden: [".env*", "**/secrets.*"] });
+    await generate({ forbidden: [".env*"] });
+    expect(deny()).toEqual(["Edit(.env*)"]);
+  });
+
+  test("dropping forbidden entirely removes our rules but keeps the user's", async () => {
+    const p = join(target, ".claude", "settings.json");
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, JSON.stringify({ permissions: { deny: ["Bash(rm *)"] } }));
+
+    await generate({ forbidden: [".env*"] });
+    await generate({}); // no scope at all
+    expect(deny()).toEqual(["Bash(rm *)"]);
+  });
+});
+
 describe("settings.json merge", () => {
   test("preserves unrelated settings and other PreToolUse hooks", async () => {
     const settingsPath = join(target, ".claude", "settings.json");

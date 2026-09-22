@@ -32,6 +32,14 @@ export interface Manifest {
   commands: Commands;
   paths: Paths;
   dontDo?: string[];
+  /**
+   * Optional per-agent model override, keyed by agent name (`story-writer`,
+   * `backend-builder`, …). Values are whatever the target platform accepts —
+   * an alias such as `sonnet`, `opus`, `haiku` or `inherit`, or a full model ID.
+   * An agent with no entry gets no `model` key at all and follows the session
+   * default, so omitting this changes nothing.
+   */
+  models?: Record<string, string>;
   platforms: Platform[];
   notes?: string;
 }
@@ -67,6 +75,18 @@ function validateManifest(m: Record<string, unknown>, path: string): void {
     }
   }
 
+  const models = m.models;
+  if (models !== undefined) {
+    if (typeof models !== "object" || models === null || Array.isArray(models)) {
+      throw new Error(`Manifest ${path}: models must be a map of agent name to model.`);
+    }
+    for (const [agent, value] of Object.entries(models as Record<string, unknown>)) {
+      if (typeof value !== "string" || value.trim() === "") {
+        throw new Error(`Manifest ${path}: models.${agent} must be a non-empty string.`);
+      }
+    }
+  }
+
   const validPlatforms: Platform[] = ["claude-code", "kiro", "codex"];
   const platforms = m.platforms;
   if (!Array.isArray(platforms) || platforms.length === 0) {
@@ -89,6 +109,7 @@ function normalizeManifest(m: Record<string, unknown>): Manifest {
     commands: m.commands as Commands,
     paths: (m.paths ?? {}) as Paths,
     dontDo: (m["dont-do"] as string[]) ?? [],
+    models: m.models as Record<string, string> | undefined,
     platforms: m.platforms as Platform[],
     notes: m.notes as string | undefined,
   };

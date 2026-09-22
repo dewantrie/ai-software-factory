@@ -121,4 +121,30 @@ describe("loadManifest", () => {
     expect(m.paths.infra).toEqual([".github/workflows/**"]);
     expect(m.paths.docs).toEqual(["docs/**"]);
   });
+
+  describe("models", () => {
+    test("is optional — absent means every agent follows the session default", () => {
+      expect(loadManifest(writeManifest(VALID)).models).toBeUndefined();
+    });
+
+    test("loads a per-agent map", () => {
+      const m = loadManifest(writeManifest(`${VALID}
+models:
+  story-writer: sonnet
+  backend-builder: inherit
+`));
+      expect(m.models).toEqual({ "story-writer": "sonnet", "backend-builder": "inherit" });
+    });
+
+    test("rejects a non-map value", () => {
+      expect(() => loadManifest(writeManifest(`${VALID}\nmodels: sonnet\n`))).toThrow(/models must be a map/);
+    });
+
+    test("rejects an empty or non-string model", () => {
+      expect(() => loadManifest(writeManifest(`${VALID}
+models:
+  story-writer: ""
+`))).toThrow(/models\.story-writer must be a non-empty string/);
+    });
+  });
 });

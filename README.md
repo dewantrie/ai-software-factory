@@ -206,6 +206,10 @@ paths:                                     # path scoping for agents (all lists 
 dont-do:                                   # optional — appended to CLAUDE.md
   - Do not call the legacy /v1 endpoints.
 
+models:                                    # optional — per-agent model override
+  story-writer: sonnet                     # agents you omit follow the session default
+  doc-writer: sonnet
+
 platforms:                                 # required — which adapters to run
   - claude-code
   - kiro
@@ -270,7 +274,7 @@ Useful when a central prompt or profile change needs to propagate across 5+ repo
 |------------------------------|-----------|
 | `CLAUDE.md` | `.factory.yaml` (your manifest — never overwritten) |
 | `.claude/agents/*.md`, `.claude/skills/*/SKILL.md` | `.gitignore` (your changes stay) |
-| `.claude/hooks/factory-guard.mjs` + `.claude/hooks/factory-scope.json` (if `forbidden:` or any path allow-list is set) | `.claude/settings.json` — **merged, not overwritten**: only the factory's path-guard `PreToolUse` hook is added/refreshed; your other settings and hooks are kept |
+| `.claude/hooks/factory-guard.mjs` + `.claude/hooks/factory-scope.json` (if `forbidden:` or any path allow-list is set) | `.claude/settings.json` — **merged, not overwritten**: only the factory's path-guard `PreToolUse` hook and the `permissions.deny` rules derived from `forbidden:` are added/refreshed; your other settings, hooks and permission rules are kept |
 | `.kiro/steering/*`, `.kiro/FACTORY.md` (if Kiro platform) | Anything else in the repo (`src/`, `tests/`, etc.) |
 | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh`, `.codex/FACTORY.md` (if Codex platform) | `.codex/runs/**` (run history — never touched) |
 
@@ -418,6 +422,49 @@ On Claude Code, path scoping is **enforced**, not just advised:
 Limitations: enforcement covers `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only —
 a builder's `Bash` access can still write files, so the guard is a guardrail, not
 a sandbox.
+
+### Declarative deny rules (Claude Code)
+
+Alongside the hook, every `forbidden:` glob is also emitted into
+`.claude/settings.json` as a `permissions.deny` rule — `.env*` becomes
+`Edit(.env*)`. The two layers catch different things:
+
+- The **hook** fires on the edit tools, and enforces per-agent allow-lists,
+  which permission rules cannot express (they are session-wide).
+- The **deny rule** also covers the file commands Claude Code recognises inside
+  Bash — `tee`, `sed`, and `> file` redirects — which the hook never sees.
+
+Notes on the mapping: it uses `Edit(...)` and never `Write(...)`, because Claude
+Code consults file-path rules for `Read` and `Edit` only (a `Write(...)` path
+rule is accepted, never checked, and warns at startup). No matching `Read(...)`
+rule is emitted — `forbidden:` means "no agent may edit", and denying reads of
+`.env*` would also hide `.env.example`. No glob translation is needed: both
+`forbidden:` and Claude Code path rules use gitignore semantics.
+
+Your own rules are left alone. On re-install the factory prunes only the rules
+derived from the previous `forbidden:` list (recorded in `factory-scope.json`),
+so shrinking or renaming the list cleans up after itself.
+
+This still isn't a sandbox: a Node or Python script the agent runs can open
+files itself, which neither layer sees. For that, enable
+[Claude Code's sandbox](https://code.claude.com/docs/en/sandboxing) —
+OS-level, and it covers child processes.
+
+### Per-agent model selection
+
+The optional `models:` map in the manifest sets a model per agent. It is emitted
+as `model:` in Claude Code agent frontmatter and as `model` in Kiro CLI agent
+configs. An agent you don't name gets no `model` key at all and follows the
+session default, so leaving `models:` out changes nothing.
+
+No defaults ship with the factory: which agent deserves which model is a quality
+judgement that belongs to the repo owner, not to a shared tool. A reasonable
+starting point is the agents whose job is transforming text you already gave them
+(`story-writer`, `doc-writer`) rather than the ones writing code or judging it.
+
+Codex is not wired up: it selects a model per invocation (`codex exec --model`)
+rather than declaratively, so it would need the orchestrator scripts to carry the
+map. Not done yet.
 
 ### Enforced path scoping (Kiro CLI and Codex)
 

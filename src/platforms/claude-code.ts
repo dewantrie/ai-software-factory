@@ -58,6 +58,9 @@ export const claudeCode: PlatformAdapter = {
         `name: ${agent.name}`,
         `description: ${description}`,
         `tools: ${tools}`,
+        // Only when the manifest names one — an absent key means "inherit the
+        // session default", which is the behaviour repos already have.
+        ...(manifest.models?.[agent.name] ? [`model: ${manifest.models[agent.name]}`] : []),
         ...agentHooksBlock(agent.name, manifest),
         "---",
         "",
@@ -134,10 +137,32 @@ function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
 }
 
 /**
+ * A forbidden glob expressed as a Claude Code permission rule.
+ *
+ * `Edit(...)`, never `Write(...)`: Claude Code consults file-path rules for
+ * `Read` and `Edit` only. A path rule on `Write`, `NotebookEdit` or `MultiEdit`
+ * is accepted, never checked, and warns at startup. `Edit` covers the built-in
+ * edit tools *and* the file commands Claude Code recognises inside Bash — `tee`,
+ * `sed`, and `> file` redirects — which is precisely the vector the PreToolUse
+ * hook cannot see, since that hook only fires on the edit tools.
+ *
+ * Deliberately no matching `Read(...)` rule: the manifest declares these paths
+ * as "no agent may edit", not "may not read", and a pattern like `.env*` would
+ * otherwise also blind every agent to `.env.example`.
+ *
+ * No translation is needed — `forbidden:` globs and Claude Code path rules both
+ * use gitignore semantics, where a bare filename matches at any depth.
+ */
+function denyRule(glob: string): string {
+  return `Edit(${glob})`;
+}
+
+/**
  * Write (or remove) the scope guard. Emits the script + config when there is
  * anything to enforce (forbidden non-empty OR any agent allow-list present).
- * The session-level settings.json hook is added only when forbidden is non-empty;
- * allow-lists are wired per-agent (Task 5), not at session level.
+ * The session-level settings.json hook and the `permissions.deny` rules are
+ * added only when forbidden is non-empty; allow-lists are wired per-agent,
+ * not at session level.
  */
 function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: string[]): void {
   const config = scopeConfig(manifest);
@@ -148,10 +173,17 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
   const scriptPath = join(targetRoot, GUARD_REL_PATH);
   const configPath = join(targetRoot, SCOPE_CONFIG_REL_PATH);
 
+  // Read before overwriting. The previous forbidden list is the only record of
+  // which deny rules this tool owns, so pruning against it lets a shrunk or
+  // renamed list clean up after itself without touching the user's own rules.
+  const prevForbidden = previousForbidden(configPath);
+
   if (!hasForbidden && !hasAgents) {
     if (removeIfExists(configPath)) filesWritten.push(configPath);
     if (removeIfExists(scriptPath)) filesWritten.push(scriptPath);
-    if (removeGuardFromSettings(settingsPath)) filesWritten.push(settingsPath);
+    if (updateSettings(settingsPath, { hook: false, forbidden: [], prevForbidden })) {
+      filesWritten.push(settingsPath);
+    }
     return;
   }
 
@@ -161,11 +193,19 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
   copyFileSync(GUARD_ASSET_PATH, scriptPath);
   filesWritten.push(scriptPath);
 
-  if (hasForbidden) {
-    mergeGuardIntoSettings(settingsPath);
+  if (updateSettings(settingsPath, { hook: hasForbidden, forbidden: config.forbidden, prevForbidden })) {
     filesWritten.push(settingsPath);
-  } else if (removeGuardFromSettings(settingsPath)) {
-    filesWritten.push(settingsPath);
+  }
+}
+
+/** The `forbidden` list recorded by the previous install, if any. */
+function previousForbidden(configPath: string): string[] {
+  if (!existsSync(configPath)) return [];
+  try {
+    const prev = JSON.parse(readFileSync(configPath, "utf8")) as { forbidden?: unknown };
+    return Array.isArray(prev.forbidden) ? prev.forbidden.filter((g): g is string => typeof g === "string") : [];
+  } catch {
+    return [];
   }
 }
 
@@ -197,36 +237,54 @@ function readSettings(settingsPath: string): Record<string, unknown> {
   }
 }
 
-function mergeGuardIntoSettings(settingsPath: string): void {
-  const settings = readSettings(settingsPath);
-  const hooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
-  const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
-
-  const others = preToolUse.filter((e) => !isOurHook(e));
-  others.push({
-    matcher: "Write|Edit|MultiEdit|NotebookEdit",
-    hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}"` }],
-  });
-
-  hooks.PreToolUse = others;
-  settings.hooks = hooks;
-  writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+interface SettingsUpdate {
+  /** Whether the session-wide PreToolUse guard hook should be present. */
+  hook: boolean;
+  /** Forbidden globs to express as `permissions.deny` rules. */
+  forbidden: string[];
+  /** Forbidden globs from the previous install, whose rules are pruned. */
+  prevForbidden: string[];
 }
 
-/** Returns true if it modified the file. */
-function removeGuardFromSettings(settingsPath: string): boolean {
-  if (!existsSync(settingsPath)) return false;
+/**
+ * Merge the factory's two settings contributions — the guard hook and the
+ * `permissions.deny` rules — into `.claude/settings.json`, leaving everything
+ * else in the file untouched. Returns true if the file was written.
+ */
+function updateSettings(settingsPath: string, update: SettingsUpdate): boolean {
+  const existed = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
-  const hooks = settings.hooks as Record<string, HookEntry[]> | undefined;
-  if (!hooks || !Array.isArray(hooks.PreToolUse)) return false;
+  const before = JSON.stringify(settings);
 
-  const kept = hooks.PreToolUse.filter((e) => !isOurHook(e));
-  if (kept.length === hooks.PreToolUse.length) return false;
-
-  if (kept.length > 0) hooks.PreToolUse = kept;
+  // --- PreToolUse guard hook (identified by the guard script in its command) ---
+  const hooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
+  const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
+  const otherHooks = preToolUse.filter((e) => !isOurHook(e));
+  if (update.hook) {
+    otherHooks.push({
+      matcher: "Write|Edit|MultiEdit|NotebookEdit",
+      hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}"` }],
+    });
+  }
+  if (otherHooks.length > 0) hooks.PreToolUse = otherHooks;
   else delete hooks.PreToolUse;
-  if (Object.keys(hooks).length === 0) delete settings.hooks;
+  if (Object.keys(hooks).length > 0) settings.hooks = hooks;
+  else delete settings.hooks;
 
+  // --- permissions.deny (ours = rules derived from this or the previous list) ---
+  const permissions = (settings.permissions ?? {}) as Record<string, unknown>;
+  const existingDeny = Array.isArray(permissions.deny)
+    ? (permissions.deny as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
+  const ours = new Set([...update.prevForbidden, ...update.forbidden].map(denyRule));
+  const nextDeny = [...existingDeny.filter((r) => !ours.has(r)), ...update.forbidden.map(denyRule)];
+  if (nextDeny.length > 0) permissions.deny = nextDeny;
+  else delete permissions.deny;
+  if (Object.keys(permissions).length > 0) settings.permissions = permissions;
+  else delete settings.permissions;
+
+  const after = JSON.stringify(settings);
+  if (after === before && (existed || after === "{}")) return false;
   writeFile(settingsPath, JSON.stringify(settings, null, 2) + "\n");
   return true;
 }

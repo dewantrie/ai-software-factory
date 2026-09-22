@@ -237,6 +237,34 @@ describe("codex adapter", () => {
   });
 });
 
+describe("per-agent model selection", () => {
+  const withModels: Manifest = { ...manifest, models: { "story-writer": "sonnet", "backend-builder": "inherit" } };
+  const args = () => ({ targetRoot: target, manifest: withModels, agents, skills, profileBody });
+
+  test("claude-code emits `model:` only for the agents the manifest names", async () => {
+    await claudeCode.generate(args());
+    const read = (n: string) => readFileSync(join(target, ".claude", "agents", `${n}.md`), "utf8");
+    expect(read("story-writer")).toContain("model: sonnet");
+    expect(read("backend-builder")).toContain("model: inherit");
+    expect(read("researcher")).not.toContain("model:"); // unnamed → session default
+  });
+
+  test("kiro emits `model` only for the agents the manifest names", async () => {
+    await kiro.generate(args());
+    const read = (n: string) => JSON.parse(readFileSync(join(target, ".kiro", "agents", `${n}.json`), "utf8"));
+    expect(read("story-writer").model).toBe("sonnet");
+    expect(read("researcher").model).toBeUndefined();
+  });
+
+  test("no models key → no model emitted anywhere (unchanged output)", async () => {
+    await claudeCode.generate(genArgs());
+    await kiro.generate(genArgs());
+    expect(readFileSync(join(target, ".claude", "agents", "story-writer.md"), "utf8")).not.toContain("model:");
+    const cfg = JSON.parse(readFileSync(join(target, ".kiro", "agents", "story-writer.json"), "utf8"));
+    expect(cfg.model).toBeUndefined();
+  });
+});
+
 describe("registry", () => {
   test("exposes exactly the three implemented platforms", () => {
     expect([...allPlatforms].sort()).toEqual(["claude-code", "codex", "kiro"]);
