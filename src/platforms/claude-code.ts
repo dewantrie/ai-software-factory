@@ -62,7 +62,6 @@ export const claudeCode: PlatformAdapter = {
         // Only when the manifest names one — an absent key means "inherit the
         // session default", which is the behaviour repos already have.
         ...(manifest.models?.[agent.name] ? [`model: ${manifest.models[agent.name]}`] : []),
-        ...agentHooksBlock(agent.name, manifest),
         "---",
         "",
         body.trim(),
@@ -120,19 +119,15 @@ const CAPTURE_MARKER = "factory-capture.mjs";
 const STOP_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-stop.mjs", import.meta.url));
 const CAPTURE_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-capture.mjs", import.meta.url));
 
-/** Frontmatter `hooks:` lines for an editing agent whose allow-list is present; [] otherwise. */
-function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
-  const key = ALLOW_KEY_BY_AGENT[agentName];
-  if (!key || manifest.paths[key] === undefined) return [];
-  return [
-    "hooks:",
-    "  PreToolUse:",
-    '    - matcher: "Write|Edit|MultiEdit|NotebookEdit"',
-    "      hooks:",
-    "        - type: command",
-    `          command: 'node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}" ${agentName}'`,
-  ];
-}
+/*
+ * There is deliberately no per-agent `hooks:` block in agent frontmatter.
+ * Claude Code documents the field, but it is silently ignored: verified against
+ * 2.1.278 by logging every guard invocation during a real subagent edit — only
+ * the settings.json hook fired, with no argv, and an out-of-scope write went
+ * through. Emitting dead config that claims enforcement is worse than a stated
+ * gap, so the single session-wide hook carries all of it instead; it learns the
+ * acting agent from `agent_type` in the payload (see assets/factory-guard.mjs).
+ */
 
 /**
  * A forbidden glob expressed as a Claude Code permission rule.
@@ -223,7 +218,9 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
 
   if (
     updateSettings(settingsPath, {
-      hook: hasForbidden,
+      // The session hook is now the *only* place scoping is enforced, so it has
+      // to be present for per-agent allow-lists too, not just a forbidden list.
+      hook: hasForbidden || hasAgents,
       forbidden: config.forbidden,
       prevForbidden,
       sandbox: manifest.sandbox === true,

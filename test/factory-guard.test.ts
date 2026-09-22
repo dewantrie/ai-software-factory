@@ -114,6 +114,44 @@ describe("symlinks cannot smuggle a path past the globs", () => {
   });
 });
 
+describe("agent identity from the hook payload", () => {
+  // Claude Code ignores per-agent frontmatter hooks, so the one session-wide
+  // hook runs with no argv and must learn the acting agent from `agent_type`
+  // (verified against 2.1.278: subagent edits carry the name, main-session
+  // edits carry null).
+  beforeEach(() =>
+    withConfig({ forbidden: [".env*"], agents: { "backend-builder": ["src/**"], "migration-author": ["db/**"] } }),
+  );
+
+  const asAgent = (agent: string | null, filePath: string) => ({
+    cwd: dir,
+    agent_type: agent,
+    tool_input: { file_path: join(dir, filePath) },
+  });
+
+  test("scopes by agent_type when no argv is given", () => {
+    expect(run("", asAgent("backend-builder", "src/x.ts"))).toBe(0);
+    expect(run("", asAgent("backend-builder", "db/001.sql"))).toBe(2);
+    expect(run("", asAgent("migration-author", "db/001.sql"))).toBe(0);
+    expect(run("", asAgent("migration-author", "src/x.ts"))).toBe(2);
+  });
+
+  test("a null agent_type (main session) is forbidden-only, not allow-listed", () => {
+    expect(run("", asAgent(null, "anywhere/x.ts"))).toBe(0);
+    expect(run("", asAgent(null, ".env"))).toBe(2);
+  });
+
+  test("an agent with no allow-list in config is forbidden-only", () => {
+    expect(run("", asAgent("doc-writer", "anywhere/x.ts"))).toBe(0);
+    expect(run("", asAgent("doc-writer", ".env"))).toBe(2);
+  });
+
+  test("an explicit argv name still wins, for platforms that pass one", () => {
+    // Kiro CLI puts the name in each agent's own hook command.
+    expect(run("migration-author", asAgent("backend-builder", "db/001.sql"))).toBe(0);
+  });
+});
+
 describe("robustness", () => {
   beforeEach(() => withConfig({ forbidden: [".env*"], agents: {} }));
 

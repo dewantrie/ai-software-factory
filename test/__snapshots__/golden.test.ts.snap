@@ -70,12 +70,6 @@ Everything above is rewritten from \`.factory.yaml\` and the profile.
 name: backend-builder
 description: Implements backend-only changes per the context file's path scoping. Cannot touch frontend or migrations.
 tools: Read, Edit, Write, Bash, Grep, Glob
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit|MultiEdit|NotebookEdit"
-      hooks:
-        - type: command
-          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/factory-guard.mjs" backend-builder'
 ---
 
 # Backend Builder

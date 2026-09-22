@@ -46,16 +46,26 @@ function globToRegExp(glob) {
   return new RegExp("^" + re + "$");
 }
 
-const agentName = process.argv[2] || "";
-const forbidden = (config.forbidden || []).map((g) => ({ g, re: globToRegExp(g) }));
-const allowGlobs = agentName && config.agents && config.agents[agentName] ? config.agents[agentName] : null;
-const allow = allowGlobs ? allowGlobs.map((g) => ({ g, re: globToRegExp(g) })) : null;
-
 let raw = "";
 try { raw = readFileSync(0, "utf8"); } catch {}
 let data = {};
 try { data = JSON.parse(raw || "{}"); } catch {}
 if (!data || typeof data !== "object") data = {};
+
+// Which agent is acting, in order of trust:
+//   1. argv[2] — an explicit name, used by platforms that can pass one per agent
+//      (Kiro CLI puts it in each agent's own hook command).
+//   2. `agent_type` in the PreToolUse payload — the acting subagent's name, or
+//      null when the main session is editing. This is how Claude Code reports it
+//      to a single session-wide hook, which is the only kind that actually runs
+//      there: per-agent hooks declared in agent frontmatter are silently ignored
+//      (verified against Claude Code 2.1.278 — only the settings.json hook fired,
+//      and it fired with no argv).
+// An unknown agent leaves `allow` null, so only the forbidden list applies.
+const agentName = process.argv[2] || (typeof data.agent_type === "string" ? data.agent_type : "") || "";
+const forbidden = (config.forbidden || []).map((g) => ({ g, re: globToRegExp(g) }));
+const allowGlobs = agentName && config.agents && config.agents[agentName] ? config.agents[agentName] : null;
+const allow = allowGlobs ? allowGlobs.map((g) => ({ g, re: globToRegExp(g) })) : null;
 
 const ti = data.tool_input || {};
 const filePath = ti.file_path || ti.notebook_path || ti.path || "";

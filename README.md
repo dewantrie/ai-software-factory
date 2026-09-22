@@ -415,10 +415,18 @@ On Claude Code, path scoping is **enforced**, not just advised:
 
 - The `forbidden:` list is blocked session-wide by a `PreToolUse` hook
   (`.claude/hooks/factory-guard.mjs` + a merged `.claude/settings.json`).
-- Each editing agent (`backend`, `frontend`, `tests`, `migrations`, `infra`,
-  `docs`) gets a per-agent `PreToolUse` hook in its frontmatter that blocks
-  edits outside its allow-list. Lists are **opt-in**: an agent with no list in
-  the manifest is unenforced (prompt-only); an empty list means "edit nothing".
+- Per-agent allow-lists (`backend`, `frontend`, `tests`, `migrations`, `infra`,
+  `docs`) are enforced by that **same session hook**, which learns the acting
+  agent from `agent_type` in the `PreToolUse` payload. Lists are **opt-in**: an
+  agent with no list in the manifest is unenforced (prompt-only); an empty list
+  means "edit nothing".
+
+> **Why not a hook in each agent's frontmatter?** Because Claude Code ignores
+> them. The field is documented, but verified against 2.1.278 by logging every
+> guard invocation during a real subagent edit: only the settings.json hook
+> fired, it fired with no argv, and an out-of-scope write went through. The
+> payload carries `agent_type` (the subagent's name, or `null` for the main
+> session), so one session-wide hook can do the whole job — and does.
 
 > **Opt-in / upgrading existing repos:** the guard is generated from the keys
 > present in *your* `.factory.yaml`, which is never overwritten by `install`. A

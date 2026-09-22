@@ -43,19 +43,37 @@ one prompt when one thing misbehaves.
 **Trade-off:** More invocations and explicit hand-offs (the orchestrator passes prior
 outputs forward). Costs tokens; buys reliability.
 
-### D5 — Per-agent frontmatter hooks for allow-lists (not a session-level inference)
+### D5 — One session hook, agent identity read from the payload (reversed)
 
-**Decision:** Enforce per-agent allow-lists via a hook in each agent's *frontmatter*,
-carrying the agent name as an argument; enforce the global `forbidden` list via a
-*session-level* hook (Chapter [04](04-path-enforcement.md)).
-**Why:** A session-level `PreToolUse` hook doesn't reliably know *which* subagent is
-acting, so it can't pick the right per-agent rule. We know the agent at **generation
-time**, so we bake its identity into its own hook command.
-**Alternative rejected:** A single session hook that infers the acting agent — the
-information isn't in the payload.
-**Trade-off:** *Per-agent* scoping needs frontmatter hooks, so it is Claude-Code- and
-Kiro-CLI-specific. Codex reaches the same end state by a different route (post-run
-git-diff revert, D11); the Kiro IDE flow stays prompt-only.
+**History:** the original decision was the opposite. Per-agent allow-lists were enforced
+by a hook in each agent's *frontmatter*, with the agent name baked into the command at
+generation time, because "a session-level `PreToolUse` hook doesn't reliably know which
+subagent is acting — the information isn't in the payload."
+
+**That premise was true when written and is now false, and the frontmatter mechanism
+never worked at all.** Both facts came out of the same experiment: instrument the guard
+to log every invocation, then drive a real Claude Code session (2.1.278) through a
+subagent edit. The log showed exactly one invocation, with **no argv** — so the
+frontmatter `hooks:` block is silently ignored, and an out-of-scope write by
+`migration-author` into `src/services/**` landed on disk. The same payload contained
+`agent_type: "migration-author"`.
+
+**Decision (current):** emit one session-wide `PreToolUse` hook and have the guard
+resolve the acting agent from `argv[2]` if present, otherwise `agent_type` in the
+payload (`null` there means the main session, which gets the forbidden list only). No
+frontmatter hooks are generated — dead config that claims enforcement is worse than a
+stated gap. The session hook is therefore emitted whenever *any* scope is declared, not
+just a `forbidden` list.
+**Verified end-to-end:** with the prompt-level rules temporarily removed so a compliant
+agent would actually attempt the write, the hook returned
+`PreToolUse:Edit hook error: … "src/services/order.service.ts" is outside
+migration-author allowed paths` and the file was untouched.
+**Trade-off:** enforcement now depends on `agent_type` being present. A Claude Code
+version that stops sending it would silently degrade to forbidden-only rather than fail
+loudly. Kiro CLI is unaffected — it passes the name as argv, which still wins.
+**Lesson:** this sat in the book as a verified design for months. It was only ever
+tested by unit tests against the guard, never by watching a real agent try to break it.
+A hook that is never observed firing is not enforcement, it is a hypothesis.
 
 ### D6 — Opt-in enforcement (absent key = unenforced)
 

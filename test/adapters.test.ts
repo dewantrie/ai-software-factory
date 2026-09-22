@@ -91,31 +91,26 @@ describe("claude-code adapter", () => {
     expect(backend).toContain("CLAUDE.md");
   });
 
-  test("emits a per-agent PreToolUse hook only for agents with an allow-list", async () => {
-    await claudeCode.generate(genArgs()); // manifest has paths.backend, no docs
-    const backend = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
-    expect(backend).toContain("hooks:");
-    expect(backend).toContain("PreToolUse:");
-    expect(backend).toContain('factory-guard.mjs" backend-builder');
-
-    // doc-writer has no `docs` list in this manifest → no hook block
-    const doc = readFileSync(join(target, ".claude", "agents", "doc-writer.md"), "utf8");
-    expect(doc).not.toContain("hooks:");
-
-    // read-only agent never gets a hook
-    const researcher = readFileSync(join(target, ".claude", "agents", "researcher.md"), "utf8");
-    expect(researcher).not.toContain("hooks:");
+  test("emits no per-agent hooks — Claude Code ignores frontmatter hooks", async () => {
+    // Verified against 2.1.278: during a real subagent edit only the settings.json
+    // hook fired. Emitting a frontmatter hook would be dead config claiming
+    // enforcement, so scoping rides on the session hook + `agent_type` instead.
+    await claudeCode.generate(genArgs());
+    for (const a of agents) {
+      const body = readFileSync(join(target, ".claude", "agents", `${a.name}.md`), "utf8");
+      expect(body).not.toContain("hooks:");
+      expect(body).not.toContain("PreToolUse");
+    }
   });
 
-  test("generated agent frontmatter with a hook block is valid YAML", async () => {
+  test("generated agent frontmatter is valid YAML", async () => {
     const { parse } = await import("yaml");
     await claudeCode.generate(genArgs());
     const body = readFileSync(join(target, ".claude", "agents", "backend-builder.md"), "utf8");
-    const fm = body.split("---")[1]; // text between the first pair of --- fences
-    const parsed = parse(fm) as any;
+    const parsed = parse(body.split("---")[1]) as any;
     expect(parsed.name).toBe("backend-builder");
-    expect(parsed.hooks.PreToolUse[0].matcher).toContain("Edit");
-    expect(parsed.hooks.PreToolUse[0].hooks[0].command).toContain("backend-builder");
+    expect(parsed.tools).toContain("Edit");
+    expect(parsed.hooks).toBeUndefined();
   });
 });
 

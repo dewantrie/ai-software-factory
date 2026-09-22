@@ -49,14 +49,14 @@ what the rules cover — because a hook on the edit tools cannot see a shell com
 nothing inside Claude Code can see a subprocess.
 
 ```
-Layer 1 — global forbidden net (session level)          [always, when forbidden is set]
+Layer 1 — global forbidden net (session level)          [whenever any scope is declared]
   .claude/settings.json  PreToolUse → factory-guard.mjs          (no agent arg)
   Applies to every agent and the orchestrator. Blocks `forbidden` globs.
 
-Layer 2 — per-agent allow-lists (agent level)           [always, per declared key]
-  .claude/agents/backend-builder.md frontmatter:
-    hooks: PreToolUse → factory-guard.mjs backend-builder        (agent arg!)
-  Runs only when THAT subagent edits. Blocks paths outside its allow-list.
+Layer 2 — per-agent allow-lists (same hook, agent from the payload)
+  .claude/settings.json  PreToolUse → factory-guard.mjs
+  The payload carries `agent_type`: the acting subagent's name, or null when
+  the main session edits. The guard reads it and applies that agent's list.
 
 Layer 3 — declarative deny rules                        [always, when forbidden is set]
   .claude/settings.json  permissions.deny: ["Edit(.env*)", …]

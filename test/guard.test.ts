@@ -61,11 +61,16 @@ describe("path guard generation", () => {
     expect(hooks[0].hooks[0].command).toContain("factory-guard.mjs");
   });
 
-  test("writes script + config but NO session hook when only allow-lists are set", async () => {
+  test("writes the session hook for allow-lists too, not just a forbidden list", async () => {
+    // The session hook is the only one that actually runs (frontmatter hooks are
+    // ignored by Claude Code), so per-agent scoping depends on it being present.
     await generate({ backend: ["src/**"] });
     expect(existsSync(join(target, ".claude", "hooks", "factory-guard.mjs"))).toBe(true);
     expect(existsSync(join(target, ".claude", "hooks", "factory-scope.json"))).toBe(true);
-    expect(existsSync(join(target, ".claude", "settings.json"))).toBe(false);
+    const commands = settings().hooks.PreToolUse.flatMap((e: any) => e.hooks.map((h: any) => h.command));
+    expect(commands.some((c: string) => c.includes("factory-guard.mjs"))).toBe(true);
+    // and it carries no agent argument — the agent comes from the payload
+    expect(commands.every((c: string) => !/factory-guard\.mjs"? \S/.test(c))).toBe(true);
   });
 
   test("writes nothing when there is nothing to enforce", async () => {
