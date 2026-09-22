@@ -71,6 +71,8 @@ output:
                                          + .claude/hooks/factory-capture.mjs
 6. merged .claude/settings.json       ← guard hook + Stop/SubagentStop entries
                                          + permissions.deny + sandbox.denyWrite
+7. .claude/FACTORY.md                 ← human-facing explainer: what's in .claude/,
+                                         and where each settings.json entry came from
 ```
 
 Items 4–6 are covered in Chapter [04](04-path-enforcement.md). Everything in 5 is off

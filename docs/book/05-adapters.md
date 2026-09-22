@@ -28,7 +28,7 @@ trees; that difference *is* the adapter.
 
 | Platform | State | Emits |
 |---|---|---|
-| `claude-code` | reference | `CLAUDE.md`, `.claude/agents/*`, `.claude/skills/*/SKILL.md`, path-guard hook |
+| `claude-code` | reference | `CLAUDE.md`, `.claude/agents/*`, `.claude/skills/*/SKILL.md`, path-guard hook, `.claude/FACTORY.md` |
 | `kiro` | real | `.kiro/steering/*` (IDE context + agents), `.kiro/skills/*/SKILL.md` (native Agent Skills), `.kiro/agents/*.json` (CLI, with enforced hooks), `.kiro/FACTORY.md` |
 | `codex` | real | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh` (with scope guard), `.codex/FACTORY.md` |
 
@@ -85,7 +85,9 @@ The same `.factory.yaml` produces materially different rigor per platform:
 This asymmetry is honest, not accidental: an adapter can only use the features its
 platform actually has. The factory's job is to emit the **best** files each platform can
 use, not to pretend they're equivalent. The `FACTORY.md` each adapter writes spells out
-that platform's limitations so users aren't misled.
+that platform's limitations so users aren't misled — and, for Claude Code, where every
+entry the factory added to `settings.json` came from and how to turn it off. A generated
+file nobody can trace back to its source is a file people eventually delete.
 
 Three platforms are implemented (Claude Code, Kiro, Codex); they differ in how much they
 enforce (Chapter [04](04-path-enforcement.md)). Don't add a platform to the list until its

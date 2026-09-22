@@ -181,7 +181,7 @@ Two surfaces — the **IDE** (steering) and the **CLI** (agents):
 
 - \`steering/project.md\` — always-included project context (architecture rules, commands, path scoping, don't-do list). Kiro injects this into every chat session.
 - \`steering/agent-*.md\` — ${numAgents} manual-inclusion agent prompts. Invoke by typing \`#agent-<name>\` in Kiro IDE chat.
-- \`steering/skill-*.md\` — ${numSkills} manual-inclusion orchestrator scripts. Invoke by typing \`#skill-<name>\`.
+- \`skills/<name>/SKILL.md\` — ${numSkills} native **Agent Skills** (the orchestrators). Kiro matches your request against each skill's \`description\` to invoke one automatically; \`/<name>\` invokes it by hand.
 - \`agents/*.json\` — ${numAgents} **Kiro CLI** agent configs. Run with \`kiro-cli chat --agent <name>\`.
 - \`factory-scope.json\` + \`factory-guard.mjs\` — the path-scope guard the CLI agents' hooks call (only present when \`.factory.yaml\` declares \`paths\`/\`forbidden\`).
 
@@ -197,23 +197,23 @@ On **Kiro CLI**, path scoping is **enforced**, not just advised. Each editing ag
 
 Kiro does not have a Claude-Code-style subagent system, so the chain runs **semi-manually**. The skill file describes the sequence; you (or Kiro's agentic chat) invoke each agent in order, pasting prior output forward.
 
-### Tier 3 — full feature (\`#skill-feature-factory\`)
+### Tier 3 — full feature (\`/feature-factory\`)
 
 1. Open Kiro chat. Type:
    \`\`\`
    /feature-factory build invoice reminders for invoices unpaid > 7 days
    \`\`\`
-2. Follow the skill's instructions. Each step calls a specific agent in this order:
+2. Follow the skill's instructions. Each step calls a specific agent by \`#\`-mention, in this order:
    \`#agent-researcher\` → \`#agent-story-writer\` → **(approve story)** → \`#agent-spec-writer\` → **(approve brief)** → \`#agent-migration-author\` (skip if no schema changes) → \`#agent-backend-builder\` → \`#agent-frontend-builder\` (skip if backend-only) → \`#agent-devops-builder\` (skip if no infra) → \`#agent-test-verifier\` → \`#agent-security-reviewer\` → \`#agent-performance-reviewer\` → \`#agent-validator\` → \`#agent-doc-writer\`.
 3. Review the final diff and open the PR.
 
-### Tier 2 — small change (\`#skill-quick-fix\`)
+### Tier 2 — small change (\`/quick-fix\`)
 
-\`#skill-quick-fix fix the invoice PDF missing the tenant address\` — single builder, faster path.
+\`/quick-fix fix the invoice PDF missing the tenant address\` — single builder, faster path.
 
-### Tier 1 — research only (\`#skill-spike\`)
+### Tier 1 — research only (\`/spike\`)
 
-\`#skill-spike how do we handle Stripe webhook retries?\` — read-only investigation.
+\`/spike how do we handle Stripe webhook retries?\` — read-only investigation.
 
 ## Limitations vs. Claude Code
 
@@ -227,6 +227,6 @@ Kiro does not have a Claude-Code-style subagent system, so the chain runs **semi
 factory install
 \`\`\`
 
-Edit \`.factory.yaml\` in the repo root, then re-run. Everything under \`.kiro/steering/\`, \`.kiro/agents/\`, and the scope guard is overwritten.
+Edit \`.factory.yaml\` in the repo root, then re-run. Everything under \`.kiro/steering/\`, \`.kiro/skills/\`, \`.kiro/agents/\`, and the scope guard is overwritten.
 `;
 }
