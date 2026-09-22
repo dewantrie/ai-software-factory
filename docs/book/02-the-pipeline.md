@@ -55,7 +55,7 @@ Two design choices worth noting here:
 
 ## Inside the Claude Code adapter
 
-`src/platforms/claude-code.ts` is the reference. Its `generate()` writes four kinds of
+`src/platforms/claude-code.ts` is the reference. Its `generate()` writes these kinds of
 output:
 
 ```
@@ -67,8 +67,15 @@ output:
                                          (description) + rendered body
 4. the path guard                     ← .claude/hooks/factory-scope.json
                                          + .claude/hooks/factory-guard.mjs
-                                         + merged .claude/settings.json
+5. lifecycle hooks (opt-in)           ← .claude/hooks/factory-stop.mjs + .json
+                                         + .claude/hooks/factory-capture.mjs
+6. merged .claude/settings.json       ← guard hook + Stop/SubagentStop entries
+                                         + permissions.deny + sandbox.denyWrite
 ```
+
+Items 4–6 are covered in Chapter [04](04-path-enforcement.md). Everything in 5 is off
+unless `.factory.yaml` opts in, and settings.json is written **once**, merging all of
+the factory's contributions in a single pass.
 
 ### How the context file is built
 
@@ -100,9 +107,11 @@ For each prompt, the adapter:
 
 ### How skill descriptions are derived
 
-Skills don't have a curated description map; `extractDescription()` pulls the first real
-prose paragraph from the prompt body (skipping the leading `# Heading`). This is the
-text Claude uses to decide when to auto-invoke the skill, so getting it right matters —
+Skills don't have a curated description map; `skillDescription()` (in
+`src/util/skill-meta.ts`, shared with the Kiro adapter) pulls the first real prose
+paragraph from the prompt body, skipping the leading `# Heading`. Both platforms match a
+request against this text to decide whether to invoke the skill, so getting it right
+matters —
 a subtle bug once made every skill fall back to "`<name> orchestrator.`", which is
 useless for auto-triggering. Lesson: the description is a feature, not a label.
 
@@ -117,8 +126,10 @@ everywhere" lever from Chapter [00](00-introduction.md) made real.
 
 Every `install` regenerates the generated files (`CLAUDE.md`, `.claude/agents/*`, the
 guard). It **never** touches `.factory.yaml`, your source code, or `.codex/runs/**`. The
-`.claude/settings.json` is **merged**, not overwritten — only the factory's guard hook
-entry is added/refreshed; your other settings survive.
+`.claude/settings.json` is **merged**, not overwritten — only the factory's own
+contributions (its hook entries, the `permissions.deny` rules, and the sandbox
+`denyWrite` rules) are added or refreshed; your other settings, hooks and permission
+rules survive.
 
 The hard rule that falls out of this: **never hand-edit a generated file.** Your edit
 vanishes on the next install. Edit the manifest, the profile, or the prompt instead.

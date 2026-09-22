@@ -78,6 +78,19 @@ The `Manifest` / `Paths` TypeScript types in `src/manifest.ts` are the schema. T
 `paths` keys (`backend`, `frontend`, `tests`, `migrations`, `infra`, `docs`, `shared`,
 `forbidden`) map to specific agents — see Chapter [04](04-path-enforcement.md).
 
+Three optional keys are left out of the example above because **every one of them
+defaults to off**, and generated output is byte-identical until you add them:
+
+| Key | Effect |
+|---|---|
+| `models:` | Per-agent model override, keyed by agent name. Emitted to Claude Code frontmatter and Kiro CLI agent configs. No defaults ship — which agent deserves which model is a quality judgement belonging to the repo owner. |
+| `hooks:` | `stop-on-failing-validation` refuses to end a turn while checks fail; `capture-agent-output` records each agent's output to `.factory/runs/`. Chapter [04](04-path-enforcement.md). |
+| `sandbox:` | Turns on Claude Code's OS-level Bash sandbox and denies writes to `forbidden:` for subprocesses too. Chapter [04](04-path-enforcement.md). |
+
+The pattern is deliberate and worth copying if you add a key: **anything that changes
+how a session behaves is opt-in.** A shared tool that silently alters every repo's
+behaviour on the next `sync` is a tool people stop trusting.
+
 ## 4. Adapter — *the renderer for one platform*
 
 Location: `src/platforms/*.ts`. Contract: `PlatformAdapter` in `src/platforms/index.ts`.

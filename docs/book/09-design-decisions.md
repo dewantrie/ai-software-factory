@@ -53,8 +53,9 @@ acting, so it can't pick the right per-agent rule. We know the agent at **genera
 time**, so we bake its identity into its own hook command.
 **Alternative rejected:** A single session hook that infers the acting agent — the
 information isn't in the payload.
-**Trade-off:** The guard is Claude-Code-specific (needs frontmatter hooks + `PreToolUse`).
-Other platforms stay prompt-only.
+**Trade-off:** *Per-agent* scoping needs frontmatter hooks, so it is Claude-Code- and
+Kiro-CLI-specific. Codex reaches the same end state by a different route (post-run
+git-diff revert, D11); the Kiro IDE flow stays prompt-only.
 
 ### D6 — Opt-in enforcement (absent key = unenforced)
 
@@ -67,15 +68,19 @@ day.
 documentation (top-level README "Opt-in / upgrading existing repos") telling users to add
 keys and re-install.
 
-### D7 — Guard covers Edit/Write only; Bash is out of scope
+### D7 — Guard covers Edit/Write only; Bash is handled by other layers
 
 **Decision:** The path guard intercepts `Write`/`Edit`/`MultiEdit`/`NotebookEdit`, not
-`Bash`.
-**Why:** Reliably guarding arbitrary shell would mean parsing shell — infeasible. The
-guard targets the *common, accidental* out-of-scope edit (the model reaching for the wrong
-file), which is the failure that actually happens.
-**Trade-off:** It's a guardrail, not a sandbox. A determined `bash -c 'echo > file'`
-bypasses it. Don't market it as containment.
+`Bash`. Shell and subprocess writes are covered by two further layers instead
+(Chapter [04](04-path-enforcement.md)): `permissions.deny` rules, and an opt-in OS-level
+sandbox.
+**Why:** Reliably guarding arbitrary shell *inside a hook* would mean parsing shell —
+infeasible. But the platform already solves the same problem twice, better: permission
+rules understand the file commands Claude Code recognises, and the sandbox is enforced by
+the OS so it reaches child processes the agent spawns.
+**Trade-off:** Only layers 1–2 are per-agent. A shell write is stopped by the forbidden
+list, never by an allow-list, so **per-agent scoping remains a guardrail, not
+containment**. Say that plainly rather than implying the sandbox scopes agents.
 
 ### D8 — Profile defaults are documentation, not config
 
@@ -100,15 +105,58 @@ copied verbatim into each repo (`copyFileSync`, `GUARD_ASSET_PATH` resolved via
 must be included (it isn't excluded today). Net: the escaping fragility is gone and the
 guard is testable in isolation.
 
+### D10 — Anything that changes session behaviour is opt-in
+
+**Decision:** `models:`, `hooks:` and `sandbox:` all default to off, and generated output
+is byte-identical until a manifest asks for them.
+**Why:** This tool's files land in many repos at once via `sync`. A default that silently
+changes how every session behaves — a blocking `Stop` hook, a cheaper model on an agent,
+a sandbox constraining every command — is a change nobody asked for, arriving through a
+channel they can't easily audit. Opt-in keeps `sync` safe to run.
+**Trade-off:** Fewer people get the benefit by default, and the README has to *recommend*
+settings instead of shipping them. Accepted: a recommendation can be ignored, a bad
+default cannot.
+**Test:** the golden snapshot is unchanged by the commits that added all three — that is
+the proof, not the claim.
+
+### D11 — Codex keeps a post-run check even though it has PreToolUse
+
+**Decision:** Do **not** replace the Codex git-diff scope guard with a `PreToolUse` hook,
+despite Codex gaining hooks with the same event schema as Claude Code.
+**Why:** Codex edits through `apply_patch`, whose `PreToolUse` payload carries
+`tool_input.command` — the patch text — not a file path, and its docs state there is no
+documented way for a hook to learn which paths a call will write. The shared guard reads
+`tool_input.file_path`, which Codex never sends, so it would have matched nothing.
+**What that would have cost:** a **silent no-op** — documentation claiming enforcement
+over nothing enforced. That is strictly worse than an honest gap, because it removes the
+reader's reason to look further.
+**Trade-off:** Codex enforcement stays detect-and-revert rather than block-before. Fine:
+because it diffs the tree, it catches Bash-written files that a pre-edit hook would miss.
+
+### D12 — Golden snapshots of generated output
+
+**Decision:** Snapshot the generated file tree (real prompts, paths only) and the composed
+file contents (synthetic minimal prompts, full text) in `test/golden.test.ts`.
+**Why:** Every other test asserted *behaviour* — "a hook block is present", "the count is
+N". None asserted the bytes. Adapter output is copied verbatim into every consuming repo,
+so a formatting or ordering change could land everywhere without appearing in any diff.
+**Why split in two:** using real prompts for the content snapshot would drag ~1,900 lines
+of prompt text across three platforms into the file, and every prompt edit would churn it.
+Paths-only for the real set, synthetic bodies for the content — each catches what the
+other can't.
+**Earned its keep immediately:** it caught a single trailing space in `tools:`
+frontmatter, and a refactor that silently reordered `{matcher, hooks}` to `{hooks,
+matcher}` — no functional change, but a `settings.json` diff in every consuming repo.
+
 ---
 
 ## Known limitations (be honest)
 
 | Area | Limitation |
 |---|---|
-| Platform parity | Enforced path scoping exists on Claude Code (pre-edit hook), **Codex** (post-run git-diff guard), and **Kiro CLI** (pre-edit `preToolUse` hook). Kiro **IDE** stays prompt-only (no documented hook contract). Automatic fix loops are Claude-Code-only. |
+| Platform parity | Enforced path scoping exists on Claude Code (pre-edit hook), **Codex** (post-run git-diff guard), and **Kiro CLI** (pre-edit `preToolUse` hook). Kiro **IDE** stays prompt-only. Automatic fix loops are Claude-Code-only, and so are the deny-rule / sandbox layers and the `Stop` / `SubagentStop` hooks — Kiro and Codex both have an equivalent seam now, but neither contract is documented precisely enough to generate against (D11). |
 | Adapters | Three implemented: Claude Code, Kiro, Codex. Cursor/Windsurf are not shipped (rules-file tools with no enforcement seam → an adapter would be prompt-only). |
-| Bash | The guard can't stop file writes done via `Bash` (D7). |
+| Bash | The *hook* can't stop file writes done via `Bash` (D7). `permissions.deny` covers the shell file commands Claude Code recognises, and `sandbox: true` covers subprocesses — but both are session-wide, so a shell write is never checked against a **per-agent** allow-list. |
 | Contracts bridge | Manual (not chain-integrated), no contract-format validation, no `status.yaml` locking (Chapter [07](07-cross-repo.md)). |
 | Install backfill | `install` regenerates from the *manifest*, not the profile, so old manifests don't auto-gain new path keys (a consequence of D6/D8 — opt-in by design). |
 | Profile defaults | The docs-only-defaults indirection (D8) surprises newcomers. |
@@ -117,15 +165,21 @@ guard is testable in isolation.
 
 1. ~~Move the guard script to a static asset + direct unit tests~~ — **done** (D9);
    `assets/factory-guard.mjs` + `test/factory-guard.test.ts`.
-2. **Platform parity** — enforced path scoping is now on Codex (post-run git-diff guard)
-   and **Kiro CLI** (pre-edit `preToolUse` hook, verified against `kiro-cli`). Remaining:
-   the **Kiro IDE** flow (no documented hook contract) stays prompt-only, and **automatic
-   fix loops** are still Claude-Code-only.
-3. ~~Finish or remove the Cursor/Windsurf stubs~~ — **done**: removed (they were
+2. **Run it for real.** Everything from the lifecycle hooks onward is verified as
+   *generated correctly*, not as *honoured by the platform* — those contracts came from
+   official docs, not from execution. One real session with
+   `stop-on-failing-validation` on would turn documentation into evidence, and is worth
+   more than the next feature.
+3. **Platform parity (blocked on docs, not effort).** Kiro's `.kiro/hooks/*.json` shape
+   is documented but its exact trigger spelling, STDIN payload and exit-code contract
+   are not, and the agent `permissions` page 404s. Codex hooks can't express path
+   scoping (D11). Both are ready the moment the contracts are pinned down — the same
+   silent-no-op risk applies until then.
+4. ~~Finish or remove the Cursor/Windsurf stubs~~ — **done**: removed (they were
    throwing stubs with no enforcement seam). Re-add via Recipe B if a prompt-only adapter
    is wanted.
-4. **Chain ↔ contracts integration** — auto-pull on chain start, auto-ship on completion.
-5. **Contract-format validation** — verify the backend's emitted contract matches what the
+5. **Chain ↔ contracts integration** — auto-pull on chain start, auto-ship on completion.
+6. **Contract-format validation** — verify the backend's emitted contract matches what the
    frontend expects.
 
 ## How to keep this book true

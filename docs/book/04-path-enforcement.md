@@ -42,21 +42,52 @@ hook that infers the acting agent and rejected it: the information isn't there. 
 instead to put the agent identity where we *do* know it — at generation time, in each
 agent's own frontmatter.
 
-## The two-layer design
+## The layered design
+
+The hook is the part that knows about *agents*. Two further layers, both opt-in, widen
+what the rules cover — because a hook on the edit tools cannot see a shell command, and
+nothing inside Claude Code can see a subprocess.
 
 ```
-Layer 1 — global forbidden net (session level)
+Layer 1 — global forbidden net (session level)          [always, when forbidden is set]
   .claude/settings.json  PreToolUse → factory-guard.mjs          (no agent arg)
   Applies to every agent and the orchestrator. Blocks `forbidden` globs.
 
-Layer 2 — per-agent allow-lists (agent level)
+Layer 2 — per-agent allow-lists (agent level)           [always, per declared key]
   .claude/agents/backend-builder.md frontmatter:
     hooks: PreToolUse → factory-guard.mjs backend-builder        (agent arg!)
   Runs only when THAT subagent edits. Blocks paths outside its allow-list.
+
+Layer 3 — declarative deny rules                        [always, when forbidden is set]
+  .claude/settings.json  permissions.deny: ["Edit(.env*)", …]
+  Also covers the file commands Claude Code recognises inside Bash —
+  `tee`, `sed`, and `> file` redirects — which layers 1–2 never see.
+
+Layer 4 — OS-level sandbox                              [opt-in: `sandbox: true`]
+  .claude/settings.json  sandbox.filesystem.denyWrite: ["./.env*", …]
+  Enforced by the OS (Seatbelt / bubblewrap), so it covers a command's
+  *child processes* — the Python script that opens the file itself.
 ```
 
-When a builder edits, **both** layers fire (forbidden net + its own allow-list). That's
-intentional defense-in-depth; both must pass.
+When a builder edits, layers 1 and 2 **both** fire (forbidden net + its own allow-list).
+That's intentional defense-in-depth; both must pass. Layers 3 and 4 are about *reach*
+rather than agent identity: permission rules and the sandbox are session-wide, so they
+can express "nobody writes this" but not "this agent may only write here".
+
+Two syntax traps worth knowing, because both fail silently:
+
+- **`Edit(...)`, never `Write(...)`.** Claude Code consults file-path rules for `Read`
+  and `Edit` only; a path rule on `Write`/`NotebookEdit`/`MultiEdit` is accepted, never
+  checked, and warns at startup.
+- **The sandbox uses the opposite path convention.** Permission rules use `//path` for
+  absolute and `/path` for settings-relative; sandbox paths use `/path` for absolute and
+  `./path` for project-relative. `denyRule()` and `sandboxDenyWrite()` are separate
+  functions in `claude-code.ts` for exactly this reason — sharing them would invite a
+  silent inversion.
+
+Layer 4 works at all only because of one documented property: **a `denyWrite` holds
+inside the wider allow that makes the repo writable.** Without it the sandbox would only
+have stopped writes *outside* the repo, which is not where `forbidden:` files live.
 
 The agent name is baked into the frontmatter command at generation time
 (`factory-guard.mjs backend-builder`). That's how we solve "which agent?" — we don't
@@ -126,9 +157,17 @@ actually be able to express the globs people already write.
 Be precise about this so nobody over-trusts it:
 
 - **The Claude hook guards `Write`/`Edit`/`MultiEdit`/`NotebookEdit` only.** A builder
-  also has `Bash`. `bash -c 'echo > src/x'` bypasses the *Claude* hook. There it's a
-  **guardrail**, not a sandbox. (Guarding arbitrary Bash via a PreToolUse hook would mean
-  parsing shell — out of scope.)
+  also has `Bash`, and `bash -c 'echo > src/x'` bypasses the *hook*. (Guarding arbitrary
+  Bash via a PreToolUse hook would mean parsing shell — out of scope.) Layer 3 covers
+  the shell commands Claude Code itself recognises, and layer 4 covers everything
+  including subprocesses — but **only layers 1–2 are per-agent**. A shell write is
+  stopped by the forbidden list, never by an allow-list, so per-agent scoping remains a
+  guardrail rather than containment.
+- **Symlinks were a real hole, now closed.** `resolve()` is purely lexical, so a symlink
+  inside an allowed directory (`src/services/leak.ts → ../../.env`) used to be matched by
+  its link path and sail past the forbidden list. The guard now `realpath`s both the
+  target and the cwd before matching, falling back to the deepest existing ancestor
+  because the target of a `Write` usually doesn't exist yet. Regression-tested.
 - **Per-platform mechanism differs.** Claude Code blocks *before* the edit (PreToolUse
   hook). **Kiro CLI** does the same — each agent's `.kiro/agents/*.json` carries a
   `preToolUse` hook on the `fs_write` tool that runs the *same* `factory-guard.mjs` and
@@ -152,8 +191,28 @@ failure mode that actually happens. It does not stop a determined adversary.
 - Emits the script + config when there's anything to enforce (forbidden non-empty **or**
   any agent list present).
 - Removes stale script/config/settings entries when there's nothing to enforce.
-- Merges the session hook into `settings.json` without duplicating (`isOurHook` filter)
-  and without clobbering the user's other settings/hooks.
+- Merges into `settings.json` without duplicating and without clobbering the user's own
+  settings. Every hook entry we write is owned by the **script name in its command**
+  (`applyHook` / `ownsMarker`), so a user's own hook on the same event survives and ours
+  never doubles up.
+- Prunes its own `permissions.deny` and `sandbox.filesystem.denyWrite` rules by reading
+  the **previous** `factory-scope.json` before overwriting it. That file is the only
+  record of which rules this tool owns, so a shrunk or renamed `forbidden:` list cleans
+  up after itself while the user's own rules are never touched.
+
+### Why Codex keeps a post-run check
+
+Codex has gained lifecycle hooks with the same event schema as Claude Code, which makes
+"just reuse the shared pre-edit guard" look like an easy parity win. It isn't, and the
+reason is worth recording so nobody re-proposes it.
+
+Codex edits through `apply_patch`, and its `PreToolUse` payload carries
+`tool_input.command` — a string holding the patch — not a file path. Its docs state
+outright that there is no documented way for a hook to learn which paths a call will
+write. The shared guard reads `tool_input.file_path`, which Codex never sends, so wiring
+it up would produce a **silent no-op**: documentation claiming enforcement over nothing
+enforced, which is worse than an honest gap. Observing the git tree *after* the fact is
+the mechanism that actually fits that platform.
 
 All of this is covered by `test/guard.test.ts`, which **executes the real generated
 script** against sample payloads rather than trusting its source — the right way to test

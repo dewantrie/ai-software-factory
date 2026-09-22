@@ -21,7 +21,7 @@ Read 00 → 03 in order; that's the spine. After that, jump to whatever you need
 | [01](01-concepts.md) | The four primitives | Prompts, profiles, manifest, adapters — and how they compose |
 | [02](02-the-pipeline.md) | The install pipeline | What `factory install` actually does, step by step |
 | [03](03-the-agent-chain.md) | The agent chain | 12 agents, 3 tiers, 3 checkpoints, and the human/AI split |
-| [04](04-path-enforcement.md) | Path enforcement | Prompt-only vs enforced; the two-layer guard and **why** it's shaped that way |
+| [04](04-path-enforcement.md) | Path enforcement | Prompt-only vs enforced; the four layers and **why** each one exists |
 | [05](05-adapters.md) | Platform adapters | The `PlatformAdapter` contract; why Claude Code is the reference |
 | [06](06-profiles.md) | Profiles | Per-stack rule packs, least-privilege defaults, the "docs-only defaults" trap |
 | [07](07-cross-repo.md) | Cross-repo features | The contracts bridge and the feature lifecycle |

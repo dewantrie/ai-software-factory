@@ -29,7 +29,7 @@ trees; that difference *is* the adapter.
 | Platform | State | Emits |
 |---|---|---|
 | `claude-code` | reference | `CLAUDE.md`, `.claude/agents/*`, `.claude/skills/*/SKILL.md`, path-guard hook |
-| `kiro` | real | `.kiro/steering/*` (IDE), `.kiro/agents/*.json` (CLI, with enforced hooks), `.kiro/FACTORY.md` |
+| `kiro` | real | `.kiro/steering/*` (IDE context + agents), `.kiro/skills/*/SKILL.md` (native Agent Skills), `.kiro/agents/*.json` (CLI, with enforced hooks), `.kiro/FACTORY.md` |
 | `codex` | real | `AGENTS.md`, `.codex/agents/*`, `.codex/orchestrator/*.sh` (with scope guard), `.codex/FACTORY.md` |
 
 Cursor and Windsurf are **not** implemented — both are rules-file (context-injection) tools
@@ -47,7 +47,11 @@ Chapter [04](04-path-enforcement.md)). Everything else is measured against it.
 
 Two surfaces. **IDE:** each agent becomes a manual-inclusion steering file you invoke with
 `#agent-<name>` in chat (`project.md` is the always-included context); scoping there is
-prompt-only. **CLI:** each agent also gets a `.kiro/agents/*.json` config for
+prompt-only. The three orchestrators are **native Agent Skills** at
+`.kiro/skills/<name>/SKILL.md`, so Kiro can match a request against a skill's
+`description` and invoke it on its own, or you can type `/<name>`; they used to be
+manual-inclusion steering files, and the old `skill-*.md` files are removed on install.
+**CLI:** each agent also gets a `.kiro/agents/*.json` config for
 `kiro-cli chat --agent <name>`, and editing agents carry a `preToolUse` hook that runs the
 same guard as Claude — so the CLI flow has **enforced** path scoping (Chapter
 [04](04-path-enforcement.md)).
@@ -67,7 +71,9 @@ Claude chain, done in shell. After each editing agent it runs a git-diff scope g
 The same `.factory.yaml` produces materially different rigor per platform:
 
 - **Claude Code:** native subagents + enforced path scoping (pre-edit `PreToolUse` block)
-  + (in the chain) automatic fix loops.
+  + (in the chain) automatic fix loops. It is also the only adapter that can express the
+  further layers — `permissions.deny` and an OS-level sandbox (Chapter
+  [04](04-path-enforcement.md)) — plus opt-in `Stop` / `SubagentStop` lifecycle hooks.
 - **Codex:** enforced path scoping too, but via a different mechanism — the orchestrator
   scripts run a post-run git-diff guard (`factory-check.mjs`) that reverts + halts on
   out-of-scope edits (Chapter [04](04-path-enforcement.md)). No automatic fix loops; human
