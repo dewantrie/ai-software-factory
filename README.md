@@ -210,6 +210,10 @@ models:                                    # optional — per-agent model overri
   story-writer: sonnet                     # agents you omit follow the session default
   doc-writer: sonnet
 
+hooks:                                     # optional — both default to false
+  stop-on-failing-validation: true         # don't end a turn while checks fail
+  capture-agent-output: true               # record each agent's output to .factory/runs/
+
 platforms:                                 # required — which adapters to run
   - claude-code
   - kiro
@@ -449,6 +453,42 @@ This still isn't a sandbox: a Node or Python script the agent runs can open
 files itself, which neither layer sees. For that, enable
 [Claude Code's sandbox](https://code.claude.com/docs/en/sandboxing) —
 OS-level, and it covers child processes.
+
+### Lifecycle hooks (Claude Code, opt-in)
+
+Both default to off. Each changes how a session behaves, which isn't a change to
+make on a repo's behalf — the generated output is byte-identical until you ask.
+
+**`stop-on-failing-validation`** wires a `Stop` hook that refuses to end a turn
+while `commands.typecheck` or `commands.test` fail. Every builder prompt already
+says "run the validation commands, do not return with failing checks"; nothing
+verified it. Now the harness runs them, so a builder cannot report green while
+the suite is red.
+
+`Stop` fires at the end of *every* turn, so three guards keep it from trapping
+the session:
+
+1. `stop_hook_active` short-circuits — a blocked stop can never loop.
+2. A clean working tree exits immediately: nothing was edited, nothing to check.
+3. The working-tree fingerprint is remembered, so a given state blocks **once**.
+   Asking a question in a repo that already has failing tests won't re-block
+   every turn.
+
+State lives in the OS temp dir keyed by repo path; nothing is written to the
+repo. A repo that isn't a git checkout opts out automatically.
+
+**`capture-agent-output`** wires a `SubagentStop` hook that writes each agent's
+final message to `.factory/runs/<session>/NN-<agent>.md`. Chain artifacts
+currently exist only inside the orchestrator's context — nothing on disk says
+what the researcher found or what contract the backend emitted, so a run can't
+be audited, and the orchestrator has to carry every prior output forward as
+inlined text. This is the precondition for passing paths instead, and it brings
+Claude Code to parity with Codex, whose orchestrators already tee each step into
+`.codex/runs/`. It only observes; it never blocks.
+
+Neither is wired for Kiro or Codex yet. Kiro has a documented equivalent
+(`.kiro/hooks/*.json`, with an `Agent Stop` trigger); Codex has lifecycle hooks
+in `config.toml`. Both are candidates for the platform-parity pass.
 
 ### Per-agent model selection
 

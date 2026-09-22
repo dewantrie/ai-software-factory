@@ -40,8 +40,23 @@ export interface Manifest {
    * default, so omitting this changes nothing.
    */
   models?: Record<string, string>;
+  /**
+   * Optional lifecycle hooks, off by default. Both change how a session
+   * behaves, so they are opt-in rather than imposed on every repo.
+   */
+  hooks?: HookOptions;
   platforms: Platform[];
   notes?: string;
+}
+
+export interface HookOptions {
+  /**
+   * Stop hook: refuse to end a turn while `commands.typecheck` / `commands.test`
+   * fail and the working tree is dirty. Reports once per distinct tree state.
+   */
+  stopOnFailingValidation?: boolean;
+  /** SubagentStop hook: record each agent's final output to `.factory/runs/`. */
+  captureAgentOutput?: boolean;
 }
 
 export function loadManifest(path = ".factory.yaml"): Manifest {
@@ -99,6 +114,15 @@ function validateManifest(m: Record<string, unknown>, path: string): void {
   }
 }
 
+function normalizeHooks(raw: unknown): HookOptions | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const h = raw as Record<string, unknown>;
+  const opts: HookOptions = {};
+  if (h["stop-on-failing-validation"] === true) opts.stopOnFailingValidation = true;
+  if (h["capture-agent-output"] === true) opts.captureAgentOutput = true;
+  return Object.keys(opts).length > 0 ? opts : undefined;
+}
+
 function normalizeManifest(m: Record<string, unknown>): Manifest {
   return {
     name: m.name as string,
@@ -110,6 +134,7 @@ function normalizeManifest(m: Record<string, unknown>): Manifest {
     paths: (m.paths ?? {}) as Paths,
     dontDo: (m["dont-do"] as string[]) ?? [],
     models: m.models as Record<string, string> | undefined,
+    hooks: normalizeHooks(m.hooks),
     platforms: m.platforms as Platform[],
     notes: m.notes as string | undefined,
   };

@@ -122,6 +122,15 @@ const SCOPE_CONFIG_REL_PATH = ".claude/hooks/factory-scope.json";
 const SETTINGS_REL_PATH = ".claude/settings.json";
 const GUARD_MARKER = "factory-guard.mjs";
 
+const STOP_REL_PATH = ".claude/hooks/factory-stop.mjs";
+const STOP_CONFIG_REL_PATH = ".claude/hooks/factory-stop.json";
+const CAPTURE_REL_PATH = ".claude/hooks/factory-capture.mjs";
+const STOP_MARKER = "factory-stop.mjs";
+const CAPTURE_MARKER = "factory-capture.mjs";
+
+const STOP_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-stop.mjs", import.meta.url));
+const CAPTURE_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-capture.mjs", import.meta.url));
+
 /** Frontmatter `hooks:` lines for an editing agent whose allow-list is present; [] otherwise. */
 function agentHooksBlock(agentName: string, manifest: Manifest): string[] {
   const key = ALLOW_KEY_BY_AGENT[agentName];
@@ -181,7 +190,14 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
   if (!hasForbidden && !hasAgents) {
     if (removeIfExists(configPath)) filesWritten.push(configPath);
     if (removeIfExists(scriptPath)) filesWritten.push(scriptPath);
-    if (updateSettings(settingsPath, { hook: false, forbidden: [], prevForbidden })) {
+    if (
+      updateSettings(settingsPath, {
+        hook: false,
+        forbidden: [],
+        prevForbidden,
+        ...lifecycle(targetRoot, manifest, filesWritten),
+      })
+    ) {
       filesWritten.push(settingsPath);
     }
     return;
@@ -193,9 +209,60 @@ function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: s
   copyFileSync(GUARD_ASSET_PATH, scriptPath);
   filesWritten.push(scriptPath);
 
-  if (updateSettings(settingsPath, { hook: hasForbidden, forbidden: config.forbidden, prevForbidden })) {
+  if (
+    updateSettings(settingsPath, {
+      hook: hasForbidden,
+      forbidden: config.forbidden,
+      prevForbidden,
+      ...lifecycle(targetRoot, manifest, filesWritten),
+    })
+  ) {
     filesWritten.push(settingsPath);
   }
+}
+
+/**
+ * Write (or remove) the opt-in lifecycle hook scripts, and report which ones
+ * settings.json should now reference. Both are off unless `.factory.yaml` asks
+ * for them: each changes how a session behaves, which isn't a change to make on
+ * a repo's behalf.
+ */
+function lifecycle(
+  targetRoot: string,
+  manifest: Manifest,
+  filesWritten: string[],
+): { stop: boolean; capture: boolean } {
+  const stop = manifest.hooks?.stopOnFailingValidation === true;
+  const capture = manifest.hooks?.captureAgentOutput === true;
+
+  const stopScript = join(targetRoot, STOP_REL_PATH);
+  const stopConfig = join(targetRoot, STOP_CONFIG_REL_PATH);
+  const captureScript = join(targetRoot, CAPTURE_REL_PATH);
+
+  if (stop) {
+    // The hook re-runs the repo's own commands, so it needs them on disk —
+    // it can't read .factory.yaml (that's the factory's format, not Claude's).
+    const commands: Record<string, string> = { test: manifest.commands.test };
+    if (manifest.commands.typecheck) commands.typecheck = manifest.commands.typecheck;
+    writeFile(stopConfig, JSON.stringify(commands, null, 2) + "\n");
+    filesWritten.push(stopConfig);
+    mkdirSync(dirname(stopScript), { recursive: true });
+    copyFileSync(STOP_ASSET_PATH, stopScript);
+    filesWritten.push(stopScript);
+  } else {
+    if (removeIfExists(stopConfig)) filesWritten.push(stopConfig);
+    if (removeIfExists(stopScript)) filesWritten.push(stopScript);
+  }
+
+  if (capture) {
+    mkdirSync(dirname(captureScript), { recursive: true });
+    copyFileSync(CAPTURE_ASSET_PATH, captureScript);
+    filesWritten.push(captureScript);
+  } else if (removeIfExists(captureScript)) {
+    filesWritten.push(captureScript);
+  }
+
+  return { stop, capture };
 }
 
 /** The `forbidden` list recorded by the previous install, if any. */
@@ -224,8 +291,34 @@ interface HookEntry {
   hooks?: HookCommand[];
 }
 
-function isOurHook(entry: HookEntry): boolean {
-  return (entry.hooks ?? []).some((h) => typeof h.command === "string" && h.command.includes(GUARD_MARKER));
+/** A hook entry that runs one of our scripts, identified by the script name. */
+function ownsMarker(entry: HookEntry, marker: string): boolean {
+  return (entry.hooks ?? []).some((h) => typeof h.command === "string" && h.command.includes(marker));
+}
+
+function hookEntry(relPath: string, matcher?: string): HookEntry {
+  const command: HookCommand = { type: "command", command: `node "$CLAUDE_PROJECT_DIR/${relPath}"` };
+  // `matcher` first, to keep the serialized key order every repo already has —
+  // reordering it would churn settings.json in every consuming repo for nothing.
+  return matcher ? { matcher, hooks: [command] } : { hooks: [command] };
+}
+
+/**
+ * Set or clear one of our hooks on one event, leaving any hook we don't own in
+ * place. Ownership is by script name, so a user's own entry on the same event
+ * survives and ours never duplicates across re-installs.
+ */
+function applyHook(
+  hooks: Record<string, HookEntry[]>,
+  event: string,
+  marker: string,
+  entry: HookEntry | null,
+): void {
+  const current = Array.isArray(hooks[event]) ? hooks[event] : [];
+  const others = current.filter((e) => !ownsMarker(e, marker));
+  if (entry) others.push(entry);
+  if (others.length > 0) hooks[event] = others;
+  else delete hooks[event];
 }
 
 function readSettings(settingsPath: string): Record<string, unknown> {
@@ -244,6 +337,10 @@ interface SettingsUpdate {
   forbidden: string[];
   /** Forbidden globs from the previous install, whose rules are pruned. */
   prevForbidden: string[];
+  /** Whether the Stop validation gate should be wired up. */
+  stop: boolean;
+  /** Whether the SubagentStop output recorder should be wired up. */
+  capture: boolean;
 }
 
 /**
@@ -256,18 +353,16 @@ function updateSettings(settingsPath: string, update: SettingsUpdate): boolean {
   const settings = readSettings(settingsPath);
   const before = JSON.stringify(settings);
 
-  // --- PreToolUse guard hook (identified by the guard script in its command) ---
+  // --- our three hooks, each owned by the script name in its command ---
   const hooks = (settings.hooks ?? {}) as Record<string, HookEntry[]>;
-  const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
-  const otherHooks = preToolUse.filter((e) => !isOurHook(e));
-  if (update.hook) {
-    otherHooks.push({
-      matcher: "Write|Edit|MultiEdit|NotebookEdit",
-      hooks: [{ type: "command", command: `node "$CLAUDE_PROJECT_DIR/${GUARD_REL_PATH}"` }],
-    });
-  }
-  if (otherHooks.length > 0) hooks.PreToolUse = otherHooks;
-  else delete hooks.PreToolUse;
+  applyHook(
+    hooks,
+    "PreToolUse",
+    GUARD_MARKER,
+    update.hook ? hookEntry(GUARD_REL_PATH, "Write|Edit|MultiEdit|NotebookEdit") : null,
+  );
+  applyHook(hooks, "Stop", STOP_MARKER, update.stop ? hookEntry(STOP_REL_PATH) : null);
+  applyHook(hooks, "SubagentStop", CAPTURE_MARKER, update.capture ? hookEntry(CAPTURE_REL_PATH) : null);
   if (Object.keys(hooks).length > 0) settings.hooks = hooks;
   else delete settings.hooks;
 

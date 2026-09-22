@@ -114,6 +114,70 @@ describe("path guard behavior", () => {
   });
 });
 
+describe("lifecycle hooks (opt-in)", () => {
+  async function generateWith(hooks?: Manifest["hooks"]) {
+    return claudeCode.generate({
+      targetRoot: target,
+      manifest: { ...manifest({ forbidden: [".env*"] }), hooks },
+      agents,
+      skills,
+      profileBody,
+    });
+  }
+  const has = (p: string) => existsSync(join(target, ".claude", "hooks", p));
+  const events = () => Object.keys(settings().hooks ?? {});
+
+  test("off by default — no scripts, no Stop/SubagentStop entries", async () => {
+    await generateWith();
+    expect(has("factory-stop.mjs")).toBe(false);
+    expect(has("factory-capture.mjs")).toBe(false);
+    expect(events()).toEqual(["PreToolUse"]);
+  });
+
+  test("stop-on-failing-validation wires the Stop hook and its command config", async () => {
+    await generateWith({ stopOnFailingValidation: true });
+    expect(has("factory-stop.mjs")).toBe(true);
+    expect(events()).toContain("Stop");
+
+    // The hook re-runs the repo's commands, so they must be on disk for it.
+    const cfg = JSON.parse(readFileSync(join(target, ".claude", "hooks", "factory-stop.json"), "utf8"));
+    expect(cfg).toEqual({ test: "ts", typecheck: "tc" });
+  });
+
+  test("capture-agent-output wires the SubagentStop hook", async () => {
+    await generateWith({ captureAgentOutput: true });
+    expect(has("factory-capture.mjs")).toBe(true);
+    expect(events()).toContain("SubagentStop");
+  });
+
+  test("turning a hook back off removes its script, config and settings entry", async () => {
+    await generateWith({ stopOnFailingValidation: true, captureAgentOutput: true });
+    await generateWith();
+    expect(has("factory-stop.mjs")).toBe(false);
+    expect(has("factory-stop.json")).toBe(false);
+    expect(has("factory-capture.mjs")).toBe(false);
+    expect(events()).toEqual(["PreToolUse"]);
+  });
+
+  test("leaves a user's own hook on the same event alone", async () => {
+    const p = join(target, ".claude", "settings.json");
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(
+      p,
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] } }),
+    );
+
+    await generateWith({ stopOnFailingValidation: true });
+    await generateWith({ stopOnFailingValidation: true }); // idempotent
+    const commands = settings().hooks.Stop.flatMap((e: any) => e.hooks.map((h: any) => h.command));
+    expect(commands.filter((c: string) => c === "echo mine")).toHaveLength(1);
+    expect(commands.filter((c: string) => c.includes("factory-stop.mjs"))).toHaveLength(1);
+
+    await generateWith(); // ours removed, theirs kept
+    expect(settings().hooks.Stop.flatMap((e: any) => e.hooks.map((h: any) => h.command))).toEqual(["echo mine"]);
+  });
+});
+
 describe("permissions.deny from forbidden", () => {
   const deny = () => settings().permissions?.deny;
 
