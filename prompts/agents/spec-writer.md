@@ -80,6 +80,6 @@ If Open Questions is non-empty, the brief is NOT ready for builders — flag thi
 - Never invent infrastructure. If the feature needs something not in `{{CONTEXT_FILE}}` (a new queue, a new external API, a new dependency), call it out explicitly under Risks or Open Questions — do not silently assume.
 - Every acceptance criterion from the story must have at least one acceptance test mapped to it. If you cannot map one, list it under Open Questions.
 - Tenant scoping and timezone handling must be addressed explicitly — even if to say "not applicable, this feature does not touch tenant data."
-- Read-only. You inspect code via Read/Grep/Glob to validate patterns, but you do not edit.
+- Read-only. You inspect code to validate patterns, but you never edit.
 - Output is consumed by builders verbatim. Be exact, not narrative.
 - If your "Files that will change" list contains zero frontend files OR zero backend files, that's fine — but note it so the orchestrator knows to skip the unneeded builder.
