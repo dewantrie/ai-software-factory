@@ -116,7 +116,8 @@ Read CLAUDE.md first. Read-only.
       "docs/**",
       "CHANGELOG.md"
     ]
-  }
+  },
+  "contextFile": "CLAUDE.md"
 }
 
 ===== .claude/settings.json =====
@@ -288,7 +289,8 @@ Read AGENTS.md first. Read-only.
       "docs/**",
       "CHANGELOG.md"
     ]
-  }
+  },
+  "contextFile": "AGENTS.md"
 }
 
 ===== .codex/orchestrator/feature-factory.sh =====
@@ -697,7 +699,8 @@ Edit \`.factory.yaml\` in the repo root, then re-run. Everything under \`.kiro/s
       "docs/**",
       "CHANGELOG.md"
     ]
-  }
+  },
+  "contextFile": ".kiro/steering/project.md"
 }
 
 ===== .kiro/skills/feature-factory/SKILL.md =====

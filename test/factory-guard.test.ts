@@ -41,6 +41,19 @@ function run(agent: string, payload: unknown): number {
   }
 }
 
+/** Run the asset and return its stderr (the block reason). */
+function stderrOf(agent: string, payload: unknown): string {
+  try {
+    execFileSync("node", agent ? [script, agent] : [script], {
+      input: JSON.stringify(payload),
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return "";
+  } catch (err: any) {
+    return String(err.stderr ?? "");
+  }
+}
+
 function edit(filePath: string) {
   return { cwd: dir, tool_input: { file_path: join(dir, filePath) } };
 }
@@ -149,6 +162,22 @@ describe("agent identity from the hook payload", () => {
   test("an explicit argv name still wins, for platforms that pass one", () => {
     // Kiro CLI puts the name in each agent's own hook command.
     expect(run("migration-author", asAgent("backend-builder", "db/001.sql"))).toBe(0);
+  });
+});
+
+describe("block message names the platform's own context file", () => {
+  // The guard is shared by Claude Code and Kiro. It used to hardcode "CLAUDE.md",
+  // which pointed Kiro users at a file their repo does not have — confirmed in a
+  // real kiro-cli run before the fix.
+  test("quotes contextFile from the config", () => {
+    withConfig({ forbidden: [".env*"], agents: { "backend-builder": ["src/**"] }, contextFile: ".kiro/steering/project.md" });
+    expect(stderrOf("backend-builder", edit("docs/x.md"))).toContain('.kiro/steering/project.md -> "Path scoping');
+    expect(stderrOf("", edit(".env"))).toContain('.kiro/steering/project.md -> "All agents must NOT edit"');
+  });
+
+  test("falls back to a neutral phrase when the field is absent", () => {
+    withConfig({ forbidden: [".env*"], agents: {} });
+    expect(stderrOf("", edit(".env"))).toContain("the project context file");
   });
 });
 

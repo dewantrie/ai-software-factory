@@ -20,6 +20,13 @@ export const ALLOW_KEY_BY_AGENT: Record<string, keyof Paths> = {
 export interface ScopeConfig {
   forbidden: string[];
   agents: Record<string, string[]>;
+  /**
+   * The platform's context file, quoted back in the guard's block message so it
+   * points at a file that actually exists on that platform. The guard is shared
+   * by Claude Code and Kiro, and used to hardcode "CLAUDE.md" — which sent Kiro
+   * users to a file their repo doesn't have.
+   */
+  contextFile: string;
 }
 
 /** Agents whose allow-list is PRESENT in the manifest (empty list counts as present). */
@@ -33,8 +40,8 @@ export function agentAllowMap(manifest: Manifest): Record<string, string[]> {
 }
 
 /** The data the generated guard/check scripts read from `factory-scope.json`. */
-export function scopeConfig(manifest: Manifest): ScopeConfig {
-  return { forbidden: manifest.paths.forbidden ?? [], agents: agentAllowMap(manifest) };
+export function scopeConfig(manifest: Manifest, contextFile: string): ScopeConfig {
+  return { forbidden: manifest.paths.forbidden ?? [], agents: agentAllowMap(manifest), contextFile };
 }
 
 /** True when there is anything to enforce (a forbidden list or any agent allow-list). */

@@ -78,7 +78,7 @@ export const codex: PlatformAdapter = {
 
     // 4. Path-scope enforcement data + checker (the orchestrator's enforce_scope
     //    step is a no-op unless both of these exist; see scopeHelpers()).
-    const config = scopeConfig(manifest);
+    const config = scopeConfig(manifest, "AGENTS.md");
     const scopeJsonPath = join(targetRoot, ".codex", "factory-scope.json");
     const checkPath = join(targetRoot, ".codex", "factory-check.mjs");
     if (hasScopeToEnforce(config)) {

@@ -18,8 +18,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-let config = { forbidden: [], agents: {} };
+let config = { forbidden: [], agents: {}, contextFile: "the project context file" };
 try { config = JSON.parse(readFileSync(join(here, "factory-scope.json"), "utf8")); } catch {}
+const ctxFile = typeof config.contextFile === "string" && config.contextFile
+  ? config.contextFile
+  : "the project context file";
 
 function globToRegExp(glob) {
   let re = "";
@@ -82,7 +85,7 @@ if (violations.length > 0) {
   console.error(
     `ai-factory scope check: ${violations.length} file(s) edited outside ${label}:\n` +
       violations.map((v) => "  - " + v).join("\n") +
-      `\n(See AGENTS.md -> "Path scoping for agents". Edit .factory.yaml and re-run factory install if intentional.)`,
+      `\n(See ${ctxFile} -> "Path scoping for agents". Edit .factory.yaml and re-run factory install if intentional.)`,
   );
   process.exit(1);
 }

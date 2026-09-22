@@ -11,8 +11,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, basename, join, resolve, relative } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-let config = { forbidden: [], agents: {} };
+let config = { forbidden: [], agents: {}, contextFile: "the project context file" };
 try { config = JSON.parse(readFileSync(join(here, "factory-scope.json"), "utf8")); } catch {}
+const ctxFile = typeof config.contextFile === "string" && config.contextFile
+  ? config.contextFile
+  : "the project context file";
 
 function globToRegExp(glob) {
   let re = "";
@@ -102,7 +105,7 @@ const base = rel.split("/").pop() || rel;
 
 for (const f of forbidden) {
   if (f.re.test(rel) || f.re.test(base)) {
-    console.error('Blocked by ai-factory path guard: "' + rel + '" matches forbidden pattern "' + f.g + '" (CLAUDE.md -> "All agents must NOT edit"). Edit .factory.yaml and re-run factory install if this is intentional.');
+    console.error('Blocked by ai-factory path guard: "' + rel + '" matches forbidden pattern "' + f.g + '" (' + ctxFile + ' -> "All agents must NOT edit"). Edit .factory.yaml and re-run factory install if this is intentional.');
     process.exit(2);
   }
 }
@@ -111,7 +114,7 @@ if (allow !== null) {
   const ok = allow.some((a) => a.re.test(rel));
   if (!ok) {
     const list = allow.map((a) => a.g).join(", ") || "(none)";
-    console.error('Blocked by ai-factory path guard: "' + rel + '" is outside ' + agentName + ' allowed paths [' + list + '] (CLAUDE.md -> "Path scoping for agents"). Edit .factory.yaml and re-run factory install if this is intentional.');
+    console.error('Blocked by ai-factory path guard: "' + rel + '" is outside ' + agentName + ' allowed paths [' + list + '] (' + ctxFile + ' -> "Path scoping for agents"). Edit .factory.yaml and re-run factory install if this is intentional.');
     process.exit(2);
   }
 }

@@ -123,6 +123,30 @@ copied verbatim into each repo (`copyFileSync`, `GUARD_ASSET_PATH` resolved via
 must be included (it isn't excluded today). Net: the escaping fragility is gone and the
 guard is testable in isolation.
 
+### D13 — Kiro CLI hooks do run; Claude Code frontmatter hooks do not
+
+**Observation, not a choice.** The same per-agent guard is wired two ways, and only
+one of them fires. Kiro puts its hook in the agent's **JSON config**
+(`.kiro/agents/<name>.json` → `hooks.preToolUse`) and honours it: a real kiro-cli
+2.22.0 run answered an out-of-scope `fs_write` with
+
+    ✗ preToolUse "node .kiro/factory-guard.mjs migration-author" failed with exit
+      code: 2 … PreToolHook blocked the tool execution
+
+and left the file untouched. Claude Code's equivalent in **agent frontmatter** is
+silently ignored (D5), which is why its scoping had to move to one session-wide hook.
+**Why it matters:** the two look like the same feature in the docs, and only running
+them apart tells you they aren't. Neither adapter should be changed to match the other
+— each uses the seam its platform actually honours.
+
+**Getting an agent to test this is its own problem.** Every agent refused the
+out-of-scope write on prompt grounds long before any tool call, so the enforcement
+layer stayed untested through several attempts. A compliant agent can never exercise
+the guard. Both confirmations needed the prompt-level rules temporarily removed — on
+Claude Code by stripping the scoping section from CLAUDE.md, on Kiro by standing up a
+throwaway agent config with a neutral prompt and the real hook. Any future check of
+this kind needs the same trick.
+
 ### D10 — Anything that changes session behaviour is opt-in
 
 **Decision:** `models:`, `hooks:` and `sandbox:` all default to off, and generated output

@@ -10,8 +10,13 @@ import { descriptionFor } from "../util/agent-meta.js";
 import { skillDescription } from "../util/skill-meta.js";
 
 // Reuses the SAME guard as Claude Code: it reads a PreToolUse JSON payload from
-// stdin and exits 2 to block. Verified against Kiro CLI (payload has tool_name
-// "fs_write" and tool_input.path; exit 2 blocks the write).
+// stdin and exits 2 to block. Confirmed in a real kiro-cli 2.22.0 run — an
+// out-of-scope fs_write produced:
+//   ✗ preToolUse "node .kiro/factory-guard.mjs migration-author" failed with
+//     exit code: 2 … PreToolHook blocked the tool execution
+// and the file was untouched. Worth contrasting with Claude Code, where the
+// equivalent per-agent hook in *agent frontmatter* is silently ignored (D5) —
+// Kiro's per-agent hook lives in the agent's JSON config and does run.
 const GUARD_ASSET_PATH = fileURLToPath(new URL("../../assets/factory-guard.mjs", import.meta.url));
 const CONTEXT_FILE = ".kiro/steering/project.md";
 
@@ -100,7 +105,7 @@ export const kiro: PlatformAdapter = {
 
     // 5. Path-scope data + guard (referenced by the CLI agents' hooks). No-op when
     //    the manifest declares no scope; removes stale copies in that case.
-    const config = scopeConfig(manifest);
+    const config = scopeConfig(manifest, CONTEXT_FILE);
     const scopeJsonPath = join(targetRoot, ".kiro", "factory-scope.json");
     const guardPath = join(targetRoot, ".kiro", "factory-guard.mjs");
     if (hasScopeToEnforce(config)) {

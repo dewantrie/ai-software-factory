@@ -180,7 +180,7 @@ function sandboxDenyWrite(glob: string): string[] {
  * not at session level.
  */
 function writeScopeGuard(targetRoot: string, manifest: Manifest, filesWritten: string[]): void {
-  const config = scopeConfig(manifest);
+  const config = scopeConfig(manifest, "CLAUDE.md");
   const hasForbidden = config.forbidden.length > 0;
   const hasAgents = Object.keys(config.agents).length > 0;
 
